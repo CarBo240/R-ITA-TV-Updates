@@ -39,11 +39,16 @@ android {
 
     // Produce un unico APK universale
     // contenente le librerie a 32 e 64 bit
+   
     splits {
         abi {
-            enable false
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a"
+            universalApk true
         }
     }
+
 
     sourceSets {
         test {
