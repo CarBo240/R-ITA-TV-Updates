@@ -22,5 +22,16 @@ final class VodLibrary {
  static List<VodSource.Title> watchlistTitles(Context c,VodSettings.Source source){List<VodSource.Title> out=new ArrayList<>();for(Map.Entry<String,?> e:prefs(c).getAll().entrySet())if(e.getKey().startsWith("watch:"+source.id+":"))try{out.add(new VodSource.Title(new JSONObject(e.getValue().toString()),""));}catch(Exception ignored){}out.sort(Comparator.comparing(t->t.name));return out;}
  static String clock(long position){long seconds=Math.max(0,position)/1000;return seconds>=3600?String.format(Locale.ITALIAN,"%d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60):String.format(Locale.ITALIAN,"%d:%02d",seconds/60,seconds%60);}
  static int percent(JSONObject history){long duration=history==null?0:history.optLong("duration");return duration<=0?0:(int)Math.max(0,Math.min(100,history.optLong("position")*100/duration));}
+
+ /** Returns the watch checkpoint for exactly one TMDB season/episode, not the series latest. */
+ static JSONObject episodeProgress(Context c,String tmdbId,int season,int episode){
+  String key="history:tmdb:"+tmdbId+":"+CloudRecords.episodeKey(season,episode,"");
+  try{String value=prefs(c).getString(key,null);if(value!=null)return new JSONObject(value);}catch(Exception ignored){}
+  for(Map.Entry<String,?> entry:prefs(c).getAll().entrySet()){
+   if(!entry.getKey().startsWith("history:tmdb:"+tmdbId+":"))continue;
+   try{JSONObject record=new JSONObject(String.valueOf(entry.getValue()));if(record.optInt("seasonNumber")==season&&record.optInt("episodeNumber")==episode)return record;}catch(Exception ignored){}
+  }
+  return null;
+ }
  static void restart(Context c,String source,VodSource.Title title,String episode){try{JSONObject local=latest(c,source,title.id);if(local!=null){local.put("position",0);local.put("completed",false);local.put("time",System.currentTimeMillis());put(c,"history:"+key(source,title.id,episode),local.toString());}JSONObject metadata=title.json.optJSONObject("_metadata");if(metadata!=null){VodSource.Title tmdb=new VodSource.Title(metadata,"");JSONObject latest=latest(c,"tmdb",tmdb.id);if(latest!=null){latest.put("position",0);latest.put("completed",false);latest.put("time",System.currentTimeMillis());put(c,"history:"+key("tmdb",tmdb.id,CloudRecords.episodeKey(title.json.optInt("_seasonNumber"),title.json.optInt("_episodeNumber"),episode)),latest.toString());}}}catch(Exception ignored){}}
 }

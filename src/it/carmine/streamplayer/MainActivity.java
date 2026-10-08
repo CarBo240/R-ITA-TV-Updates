@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
     private ArrayAdapter<String> adapter;
     
     private boolean homeBackArmed;
-    private final int bg=Color.rgb(21,22,25),fg=Color.rgb(244,243,239),muted=Color.rgb(166,166,170),accent=Color.rgb(242,178,69);
+    private int bg=Color.rgb(21,22,25),fg=Color.rgb(244,243,239),muted=Color.rgb(166,166,170),accent=Color.rgb(242,178,69),themeAtCreate;
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
     private LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w,h);}
     private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(fg);return t;}
@@ -94,16 +94,16 @@ public class MainActivity extends Activity {
     }
     private android.graphics.drawable.StateListDrawable selectable(int color){
         android.graphics.drawable.StateListDrawable d=new android.graphics.drawable.StateListDrawable();
-        d.addState(new int[]{android.R.attr.state_focused},surface(Color.rgb(64,51,30),5,accent));
-        d.addState(new int[]{android.R.attr.state_selected},surface(Color.rgb(64,51,30),5,accent));
-        d.addState(new int[]{android.R.attr.state_pressed},surface(Color.rgb(75,57,29),5,accent));
+        d.addState(new int[]{android.R.attr.state_focused},surface(UiTheme.softFocus(this),5,accent));
+        d.addState(new int[]{android.R.attr.state_selected},surface(UiTheme.softFocus(this),5,accent));
+        d.addState(new int[]{android.R.attr.state_pressed},surface(UiTheme.softFocus(this),5,accent));
         d.addState(new int[]{},surface(color,5,Color.rgb(56,57,61)));return d;
     }
     private Button button(String title){Button b=new Button(this);b.setText(title);b.setAllCaps(false);b.setTextColor(fg);b.setTextSize(14);
         b.setTypeface(UiTheme.medium(this));b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(0);b.setMinimumHeight(0);
-        b.setPadding(dp(8),dp(4),dp(8),dp(4));b.setBackground(selectable(Color.rgb(32,33,37)));b.setElevation(0);return b;}
+        b.setPadding(dp(8),dp(4),dp(8),dp(4));b.setBackground(selectable(UiTheme.panel(this)));b.setElevation(0);return b;}
     private android.graphics.drawable.StateListDrawable homeSelection(){return selectable(bg);}
-    private android.graphics.drawable.StateListDrawable channelSelection(){android.graphics.drawable.StateListDrawable d=new android.graphics.drawable.StateListDrawable();d.addState(new int[]{android.R.attr.state_focused},surface(Color.rgb(64,51,30),5,accent));d.addState(new int[]{android.R.attr.state_pressed},surface(Color.rgb(64,51,30),5,accent));d.addState(new int[]{},surface(bg,0,0));return d;}
+    private android.graphics.drawable.StateListDrawable channelSelection(){android.graphics.drawable.StateListDrawable d=new android.graphics.drawable.StateListDrawable();d.addState(new int[]{android.R.attr.state_focused},surface(UiTheme.softFocus(this),5,accent));d.addState(new int[]{android.R.attr.state_pressed},surface(UiTheme.softFocus(this),5,accent));d.addState(new int[]{},surface(bg,0,0));return d;}
     private TextView homeText(String title,int size){return text(title,size);}
     private Button homeButton(String title){return button(title);}
     protected VavooClient createClient(String id){return new VavooClient(id,this);}
@@ -156,7 +156,7 @@ public class MainActivity extends Activity {
         artwork.bind(holder.logo,artwork.logo(c,epg));
         holder.name.setText((favorites.contains(c.key())?"★  ":"")+clean);
         boolean selected=main&&guideChannel!=null&&guideChannel.key().equals(c.key());
-        holder.card.setActivated(selected);holder.card.setBackground(selected?surface(Color.rgb(64,51,30),5,accent):channelSelection());
+        holder.card.setActivated(selected);holder.card.setBackground(selected?surface(UiTheme.softFocus(this),5,accent):channelSelection());
         long now=System.currentTimeMillis();EpgStore.Programme live=epg==null?null:epg.now(c,now),following=epg==null?null:epg.next(c,now);
         holder.programme.setText(live==null?(epg==null?(guideLoading?"Guida TV in caricamento…":"Guida TV non disponibile"):"Programmazione non disponibile"):(time(live.start)+"–"+time(live.end)+"  "+live.title));
         holder.progress.setVisibility(live==null?View.GONE:View.VISIBLE);
@@ -178,11 +178,12 @@ public class MainActivity extends Activity {
         android.widget.TextView details=new android.widget.TextView(this);
         details.setPadding(dp(20),dp(32),dp(20),dp(20));
         details.setTextSize(16);details.setTextColor(android.graphics.Color.WHITE);
-        scroll.setBackgroundColor(android.graphics.Color.rgb(27,28,32));
+        scroll.setBackgroundColor(UiTheme.background(this));
         details.setText("R. ITA TV — errore di avvio\n\n"+android.util.Log.getStackTraceString(failure));
         details.setTextIsSelectable(true);scroll.addView(details);setContentView(scroll);
     }
     private void initialize() {
+        themeAtCreate=UiTheme.selected(this);bg=UiTheme.background(this);accent=UiTheme.accent(this);
         prefs=getSharedPreferences("player",MODE_PRIVATE);channelSource=ChannelSource.saved(this);
         String id=prefs.getString("device_id",null);
         if(id==null){id=UUID.randomUUID().toString();prefs.edit().putString("device_id",id).apply();}
@@ -215,7 +216,7 @@ public class MainActivity extends Activity {
         
             @Override public View getDropDownView(int pos,View old,ViewGroup parent){TextView t=(TextView)super.getDropDownView(pos,old,parent);t.setTextColor(fg);t.setBackground(homeSelection());t.setPadding(dp(16),dp(12),dp(16),dp(12));return t;}
         };cats.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);categories.setAdapter(cats);
-        categories.setOnFocusChangeListener((v,focus)->{categories.setBackground(focus?surface(Color.rgb(64,51,30),5,accent):homeSelection());});
+        categories.setOnFocusChangeListener((v,focus)->{categories.setBackground(focus?surface(UiTheme.softFocus(this),5,accent):homeSelection());});
         selectedCategory=prefs.getString("category","Tutti");int selected=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);if(selected<0){selected=0;selectedCategory="Tutti";}categories.setSelection(selected);
         categories.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
             public void onItemSelected(AdapterView<?> parent,View view,int pos,long id){if(selectedCategory.equals(ChannelCategories.ALL[pos]))return;selectedCategory=ChannelCategories.ALL[pos];prefs.edit().putString("category",selectedCategory).apply();filter();}
@@ -232,7 +233,7 @@ public class MainActivity extends Activity {
         channelColumn.addView(search,lp(-1,dp(36)));channelColumn.addView(row,rowParams);channelColumn.addView(tools,lp(-1,dp(24)));
         channelColumn.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         guideScroll=new ScrollView(this);guideScroll.setTag("homeGuide");guideScroll.setFillViewport(true);guideScroll.setFocusable(true);guideScroll.setFocusableInTouchMode(true);guideScroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);guideScroll.setId(View.generateViewId());guideScroll.setContentDescription("Guida del canale: su e giù per leggere, sinistra per tornare ai canali, OK per Guarda");guideScroll.setOnFocusChangeListener((v,focus)->guideScroll.setBackground(surface(Color.rgb(27,28,32),12,focus?accent:Color.rgb(49,50,54))));
-        guideScroll.setBackground(surface(Color.rgb(27,28,32),12,Color.rgb(49,50,54)));
+        guideScroll.setBackground(surface(UiTheme.panel(this),12,accent));
         LinearLayout.LayoutParams detailsParams=new LinearLayout.LayoutParams(0,-1,0.42f);detailsParams.leftMargin=dp(10);browser.addView(guideScroll,detailsParams);
         LinearLayout details=new LinearLayout(this);details.setOrientation(LinearLayout.VERTICAL);guideScroll.addView(details,new ScrollView.LayoutParams(-1,-2));
         FrameLayout hero=new FrameLayout(this){@Override protected void onMeasure(int w,int h){super.onMeasure(w,View.MeasureSpec.makeMeasureSpec(Math.max(dp(180),View.MeasureSpec.getSize(w)*9/16),View.MeasureSpec.EXACTLY));}};hero.setTag("programmeArtwork");details.addView(hero,lp(-1,dp(250)));
@@ -294,7 +295,7 @@ public class MainActivity extends Activity {
         guideChannel=c;if(guideScroll!=null)guideScroll.scrollTo(0,0);updateHomeGuide();
         // Selection changes no data: repaint only the rows currently on screen.
         for(int i=0;i<list.getChildCount();i++){View row=list.getChildAt(i);
-            if(row.getTag() instanceof ChannelRow){ChannelRow holder=(ChannelRow)row.getTag();boolean selected=guideChannel.key().equals(holder.channelKey);holder.card.setActivated(selected);holder.card.setBackground(selected?surface(Color.rgb(64,51,30),5,accent):channelSelection());}}
+            if(row.getTag() instanceof ChannelRow){ChannelRow holder=(ChannelRow)row.getTag();boolean selected=guideChannel.key().equals(holder.channelKey);holder.card.setActivated(selected);holder.card.setBackground(selected?surface(UiTheme.softFocus(this),5,accent):channelSelection());}}
 
     }
     private void updateHomeGuide(){
@@ -595,7 +596,7 @@ public class MainActivity extends Activity {
     }
     private void openTvSearch(){org.json.JSONArray data=new org.json.JSONArray();for(VavooClient.Channel c:channels)try{data.put(new org.json.JSONObject().put("name",c.name).put("key",c.key()));}catch(Exception ignored){}startActivityForResult(new Intent(this,TvSearchActivity.class).putExtra("channels",data.toString()).putExtra("query",search.getText().toString().trim()),203);}
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==203&&result==RESULT_OK&&data!=null){String key=data.getStringExtra("channelKey");for(VavooClient.Channel c:channels)if(c.key().equals(key)){play(c);break;}}}
-    @Override protected void onResume(){super.onResume();homeBackArmed=false;resumed=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.postDelayed(vavooRenew,VavooClient.RENEW_INTERVAL_MS);long restored=getSharedPreferences("backup",0).getLong("restoredAt",0);if(restored!=seenBackup){seenBackup=restored;favorites=new HashSet<>(prefs.getStringSet("favorites",new HashSet<>()));selectedCategory=prefs.getString("category","Tutti");int categoryIndex=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);categories.setSelection(Math.max(0,categoryIndex));client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);gomCatalog.clear();cancelCatalog();ChannelSource updated=ChannelSource.saved(this);if(updated!=channelSource)selectSource(updated);else{filter();loadCatalog(true);}epg=new EpgStore(this);loadEpg(true);}if(engine!=null&&resumePlayback)engine.play();
+    @Override protected void onResume(){super.onResume();if(themeAtCreate!=UiTheme.selected(this)&&root!=null){recreate();return;}homeBackArmed=false;resumed=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.postDelayed(vavooRenew,VavooClient.RENEW_INTERVAL_MS);long restored=getSharedPreferences("backup",0).getLong("restoredAt",0);if(restored!=seenBackup){seenBackup=restored;favorites=new HashSet<>(prefs.getStringSet("favorites",new HashSet<>()));selectedCategory=prefs.getString("category","Tutti");int categoryIndex=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);categories.setSelection(Math.max(0,categoryIndex));client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);gomCatalog.clear();cancelCatalog();ChannelSource updated=ChannelSource.saved(this);if(updated!=channelSource)selectSource(updated);else{filter();loadCatalog(true);}epg=new EpgStore(this);loadEpg(true);}if(engine!=null&&resumePlayback)engine.play();
         if(channelSource==ChannelSource.GOMSTREAM&&homePaused){if(!catalogDaddyHome.equals(DaddyLiveSettings.home(this))){cancelCatalog();gomCatalog.clear();channels.clear();guideChannel=null;filter();}loadCatalog(false);}homePaused=false;scheduleGomRefresh();}
     @Override protected void onPause(){resumed=false;homePaused=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.removeCallbacks(gomRefresh);if(engine!=null){resumePlayback=engine.getPlayWhenReady();engine.pause();}super.onPause();}
     @Override protected void onDestroy(){destroyed=true;playGeneration++;uiHandler.removeCallbacksAndMessages(null);worker.shutdownNow();gomWorker.shutdownNow();playbackWorker.shutdownNow();guideWorker.shutdownNow();sessionWorker.shutdownNow();if(artwork!=null)artwork.close();closePlayerViews();super.onDestroy();}
