@@ -1,36 +1,125 @@
-buildscript { repositories { maven { url uri('.m2') }; google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:8.9.1' } }
+
+buildscript {
+    repositories {
+        maven { url uri('.m2') }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.1'
+    }
+}
+
 apply plugin: 'com.android.application'
+
 android {
     namespace 'it.carmine.streamplayer'
     compileSdk 36
     buildToolsVersion "35.0.0"
-    defaultConfig { applicationId 'it.carmine.streamplayer'; minSdk 26; targetSdk 35; versionCode 39; versionName '1.31'; ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' } }
-    splits { abi { enable true; reset(); include "armeabi-v7a", "arm64-v8a"; universalApk true } }
-    sourceSets { test { java.srcDirs = ['tests'] }; main { manifest.srcFile 'AndroidManifest.xml'; java.srcDirs = ['src']; res.srcDirs = ['res']; assets.srcDirs = ['assets'] } }
-    testOptions { unitTests.includeAndroidResources = true; unitTests.all { maxHeapSize = "2g"; jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED", "--add-opens=java.base/java.net=ALL-UNNAMED"; systemProperty "robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2" } }
-    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    packaging { jniLibs { useLegacyPackaging true } }
+
+    // Correzione errore BuildConfig
+    buildFeatures {
+        buildConfig true
+    }
+
+    defaultConfig {
+        applicationId 'it.carmine.streamplayer'
+        minSdk 26
+        targetSdk 35
+        versionCode 39
+        versionName '1.31'
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
+    }
+
+    splits {
+        abi {
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a"
+            universalApk true
+        }
+    }
+
+    sourceSets {
+        test {
+            java.srcDirs = ['tests']
+        }
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+        }
+    }
+
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            maxHeapSize = "2g"
+            jvmArgs(
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED"
+            )
+            systemProperty "robolectric.dependency.repo.url",
+                "https://repo.maven.apache.org/maven2"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
     signingConfigs {
         localTest {
-            storeFile file(System.getenv('RITA_KEYSTORE_FILE') ?: 'local-test-key.p12')
+            storeFile file(
+                System.getenv('RITA_KEYSTORE_FILE') ?:
+                'local-test-key.p12'
+            )
             storePassword System.getenv('RITA_KEYSTORE_PASSWORD') ?: ''
             keyAlias System.getenv('RITA_KEY_ALIAS') ?: 'player'
             keyPassword System.getenv('RITA_KEY_PASSWORD') ?: ''
         }
     }
-    buildTypes { debug { signingConfig signingConfigs.localTest }; release { minifyEnabled false } }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.localTest
+        }
+        release {
+            minifyEnabled false
+        }
+    }
 }
 
 dependencies {
     implementation platform("com.google.firebase:firebase-bom:34.19.0")
     implementation "com.google.firebase:firebase-auth"
     implementation "com.google.firebase:firebase-firestore"
+
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
+
     implementation "androidx.media3:media3-datasource-okhttp:1.10.1"
+
     implementation "org.mozilla.geckoview:geckoview:152.0.20260713164047"
+
     implementation "androidx.media3:media3-exoplayer:1.10.1"
     implementation "androidx.media3:media3-exoplayer-hls:1.10.1"
     implementation "androidx.media3:media3-exoplayer-dash:1.10.1"
     implementation "androidx.media3:media3-ui:1.10.1"
- testImplementation "junit:junit:4.13.2"; testImplementation "org.robolectric:robolectric:4.14.1" }
+
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.14.1"
+}
