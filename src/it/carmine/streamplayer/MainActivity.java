@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
         super.onCreate(saved);
         if(saved==null)VodSession.reset();
         AppUpdater.check(this,false);
-        try { initialize();if(saved==null&&VodSettings.startsWithVod(this))startActivity(new Intent(this,VodActivity.class)); } catch (Throwable failure) { startupFailure(failure); }
+        try { initialize();if(saved==null&&!getIntent().getBooleanExtra("openLive",false))startActivity(new Intent(this,VodActivity.class)); } catch (Throwable failure) { startupFailure(failure); }
     }
     private void startupFailure(Throwable failure) {
         android.util.Log.e("TVSatPlayer", "Errore iniziale", failure);
