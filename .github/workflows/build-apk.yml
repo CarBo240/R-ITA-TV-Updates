@@ -53,7 +53,7 @@ jobs:
       - name: Artifacts con tre varianti
         uses: actions/upload-artifact@v4
         with:
-          name: R-ITA-TV-v1.33-APK
+          name: R-ITA-TV-v1.34-APK
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
