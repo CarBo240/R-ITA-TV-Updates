@@ -1,0 +1,13 @@
+R. ITA TV 1.32 (versionCode 40) — procedura
+
+1. Conserva backup del repository GitHub 1.31 (tag v1.31).
+2. Mantieni GitHub Private. Non pubblicare i file .p12 o password.
+3. Carica il CONTENUTO di questo ZIP nella radice del repository, sovrascrivendo i file omonimi.
+4. Verifica .github/workflows/build-apk.yml e release-apk.yml.
+5. Actions > Compila APK R. ITA TV: attendi il risultato e recupera Artifacts.
+6. Verifica l'APK e prova su un solo TIM Box. I test VOD della v1.31 avevano 9 fallimenti: non ignorarli.
+7. Soltanto dopo test sul box: crea Draft Release tag v1.32, Target main, Publish release.
+8. Workflow Releases pubblicherà soltanto R-ITA-TV-universal.apk.
+9. I controlli OTA dell'app richiedono accessibilità della Release; un repository Private non è leggibile senza autenticazione.
+
+Non disinstallare l'app: versionCode 40 deve aggiornare versionCode 39 preservando dati se firma identica.
