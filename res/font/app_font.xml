@@ -1,0 +1,5 @@
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+ <font android:font="@font/inter" android:fontWeight="400" android:fontStyle="normal" android:fontVariationSettings="'opsz' 24, 'wght' 400"/>
+ <font android:font="@font/inter" android:fontWeight="500" android:fontStyle="normal" android:fontVariationSettings="'opsz' 24, 'wght' 500"/>
+ <font android:font="@font/inter" android:fontWeight="700" android:fontStyle="normal" android:fontVariationSettings="'opsz' 24, 'wght' 600"/>
+</font-family>
