@@ -1,0 +1,43 @@
+name: Compila APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.11.1'
+          cache-provider: basic
+      - name: Installa SDK richiesto
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Compila APK
+        run: gradle --no-daemon assembleDebug testDebugUnitTest
+      - name: Verifica filtro pubblicità
+        run: |
+          node tests/adblock.test.cjs
+          node tests/adblock-content.test.cjs
+          node tests/fullscreen.test.cjs
+      - name: Salva APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: R-ITA-TV-APK
+          path: build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
