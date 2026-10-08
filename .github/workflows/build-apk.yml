@@ -1,5 +1,5 @@
 
-name: Compila APK
+name: Compila APK Universale R. ITA TV
 
 on:
   push:
@@ -46,7 +46,7 @@ jobs:
           printf '%s' "$RITA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/rita-signing.p12"
           test -s "$RUNNER_TEMP/rita-signing.p12"
 
-      - name: Compila APK firmato
+      - name: Compila APK universale firmato
         env:
           RITA_KEYSTORE_FILE: ${{ runner.temp }}/rita-signing.p12
           RITA_KEYSTORE_PASSWORD: ${{ secrets.RITA_KEYSTORE_PASSWORD }}
@@ -55,11 +55,29 @@ jobs:
         run: |
           gradle --no-daemon assembleDebug
 
-      - name: Salva APK compilati
+      - name: Verifica APK universale
+        run: |
+          APK="build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERRORE: APK universale non trovato"
+            exit 1
+          fi
+
+          echo "APK universale generato correttamente"
+          ls -lh "$APK"
+
+          mkdir -p final-apk
+          cp "$APK" final-apk/R-ITA-TV-v1.31-universal.apk
+
+          echo "## R. ITA TV 1.31" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK universale compilato e firmato." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Salva unico APK universale
         uses: actions/upload-artifact@v4
         with:
-          name: R-ITA-TV-v1.31-APK
-          path: build/outputs/apk/debug/*.apk
+          name: R-ITA-TV-v1.31-universal
+          path: final-apk/R-ITA-TV-v1.31-universal.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -69,7 +87,7 @@ jobs:
         run: |
           gradle --no-daemon testDebugUnitTest
 
-      - name: Verifica filtro pubblicita
+      - name: Verifica filtri e fullscreen
         id: filter_tests
         continue-on-error: true
         run: |
@@ -77,13 +95,12 @@ jobs:
           node tests/adblock-content.test.cjs
           node tests/fullscreen.test.cjs
 
-      - name: Riepilogo controlli
+      - name: Riepilogo test
         if: always()
         run: |
-          echo "## R. ITA TV 1.31" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "APK: consultare la sezione Artifacts." >> "$GITHUB_STEP_SUMMARY"
-          echo "Test Android: ${{ steps.android_tests.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Test filtri: ${{ steps.filter_tests.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Risultati test" >> "$GITHUB_STEP_SUMMARY"
+          echo "Android: ${{ steps.android_tests.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Filtri e fullscreen: ${{ steps.filter_tests.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Non pubblicare prima della verifica dei test e della firma." >> "$GITHUB_STEP_SUMMARY"
+          echo "Verificare i test falliti prima della distribuzione." >> "$GITHUB_STEP_SUMMARY"
