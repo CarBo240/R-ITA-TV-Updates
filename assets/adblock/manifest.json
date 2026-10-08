@@ -1,0 +1,39 @@
+{
+  "manifest_version": 2,
+  "name": "R. ITA TV Ad Filter",
+  "version": "1.2",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "adfilter@rita.tv"
+    }
+  },
+  "permissions": [
+    "<all_urls>",
+    "webRequest",
+    "webRequestBlocking",
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "geckoViewAddons"
+  ],
+  "background": {
+    "scripts": [
+      "filter.js",
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "filter.js",
+        "content.js",
+        "fullscreen.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ]
+}

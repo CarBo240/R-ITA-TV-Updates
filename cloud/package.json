@@ -1,0 +1,12 @@
+{
+  "name": "rita-tv-cloud-rules-tests",
+  "private": true,
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-rita-tv 'node rules.test.cjs'"
+  },
+  "devDependencies": {
+    "firebase-tools": "15.32.1",
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0"
+  }
+}

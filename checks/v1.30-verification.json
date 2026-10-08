@@ -1,0 +1,10 @@
+{
+  "versionName": "1.30",
+  "versionCode": 38,
+  "package": "it.carmine.streamplayer",
+  "artifact": "R-ITA-TV-v1.30-universal.apk",
+  "sha256": "519c8a2223ed28965aa45eff601668af239b33180a44a9c88311a60ae8a7c308",
+  "signatureSha256": "e4afed4098a8bb3543e584a77de540681c887fb2bfa1cecd2726d6a2a44414ab",
+  "abis": ["arm64-v8a", "armeabi-v7a"],
+  "androidTests": 253
+}

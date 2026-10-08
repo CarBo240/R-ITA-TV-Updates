@@ -1,0 +1,47 @@
+{
+  "androidTests": 217,
+  "failures": 0,
+  "testedSdk": [
+    31,
+    35
+  ],
+  "firestoreRulesTests": 23,
+  "firestoreTestsEnvironment": "local emulator only",
+  "apiLint": "NewApi/InlinedApi: no issues",
+  "adFilterTests": "2 scripts passed",
+  "cloudProject": "not created or configured",
+  "hardware": "1.22 not tested on actual TIM Box",
+  "apks": [
+    {
+      "flavor": "universal",
+      "bytes": 182666426,
+      "MB": 182.67,
+      "abis": [
+        "arm64-v8a",
+        "armeabi-v7a"
+      ],
+      "sha256": "5ff4c0c9e62986fba630202c3571316d8fee08b980ff0a045a854a67d53e41e3",
+      "signature": "same certificate as 1.21"
+    },
+    {
+      "flavor": "armeabi-v7a",
+      "bytes": 102929605,
+      "MB": 102.93,
+      "abis": [
+        "armeabi-v7a"
+      ],
+      "sha256": "50a66b12fc9358374ac7b1a7e383ac7f9622dfdf6c50df9acbd757b4762b5ab0",
+      "signature": "same certificate as 1.21"
+    },
+    {
+      "flavor": "arm64-v8a",
+      "bytes": 107719025,
+      "MB": 107.72,
+      "abis": [
+        "arm64-v8a"
+      ],
+      "sha256": "1d34768dda6d1eb46c7c1211decbc1f10a9743c2b3d345842307dafb5c2ee0bc",
+      "signature": "same certificate as 1.21"
+    }
+  ]
+}

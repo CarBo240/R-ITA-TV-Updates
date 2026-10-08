@@ -1,0 +1,23 @@
+{
+  "version": "1.23",
+  "versionCode": 31,
+  "androidUnitTests": {
+    "count": 219,
+    "result": "passed",
+    "sdks": [31, 35]
+  },
+  "nodeTests": {
+    "count": 3,
+    "result": "passed"
+  },
+  "changes": [
+    "Streaming Community is the only source of VOD catalogue entries",
+    "TMDB enriches only provider titles with artwork and plot",
+    "provider playback IDs remain separate from TMDB identity",
+    "catalogue requests preserve cookies and use TV browser headers",
+    "unknown _rita cache-busting query parameter removed",
+    "HTTP 403 and authentication-required errors are distinguished"
+  ],
+  "liveCheck": "streamingcommunityz.promo returned HTTP 200 on 2026-10-06",
+  "hardware": "1.23 not tested on actual TIM Box"
+}

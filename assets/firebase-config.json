@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "602465858582",
+    "project_id": "r-ita-757c6",
+    "storage_bucket": "r-ita-757c6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602465858582:android:355c699f8dafeef062f137",
+        "android_client_info": {
+          "package_name": "it.carmine.streamplayer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxnfKShbYAGecDm8fiPQhmUPxVSff16uQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

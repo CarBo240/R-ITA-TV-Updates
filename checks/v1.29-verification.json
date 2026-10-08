@@ -1,0 +1,10 @@
+{
+  "versionName": "1.29",
+  "versionCode": 37,
+  "package": "it.carmine.streamplayer",
+  "artifact": "R-ITA-TV-v1.29-universal.apk",
+  "sha256": "7d7836e1e7cd468746a214c101cd0a7c551aa6fb415d17cd0fdec2fd81f331a8",
+  "signatureSha256": "e4afed4098a8bb3543e584a77de540681c887fb2bfa1cecd2726d6a2a44414ab",
+  "androidTests": 246,
+  "nodeTests": 3
+}
