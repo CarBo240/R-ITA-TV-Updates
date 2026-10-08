@@ -1,0 +1,6 @@
+R. ITA 1.31 - progetto senza keystore.
+GitHub Settings > Secrets and variables > Actions: RITA_KEYSTORE_BASE64, RITA_KEYSTORE_PASSWORD, RITA_KEY_PASSWORD.
+Il file local-test-key.p12 originale NON deve essere caricato nel repository.
+Caricare il CONTENUTO di questa cartella alla radice del repository.
+Creare tag v1.31 dopo aver configurato Secrets.
+Attenzione: il repository PRIVATE non fornisce download Releases anonimo per i box.

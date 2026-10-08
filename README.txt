@@ -1,31 +1,25 @@
-# R. ITA TV 1.31 — Home VOD OTT, TMDB e VixSrc
+# R. ITA TV 1.30 — Home VOD OTT, TMDB e VixSrc
 
-Versione 1.31, codice 39, Android 8+. APK universale ARM32/ARM64 con lo stesso package e la stessa firma delle versioni precedenti, installabile come aggiornamento senza perdere configurazione e libreria.
-
-## Aggiornamenti da GitHub
-
-La versione 1.31 controlla automaticamente GitHub Releases (al massimo una volta ogni 12 ore). In VOD → Impostazioni sono disponibili **Controlla aggiornamenti app** e **Repository GitHub**. Inserire `proprietario/repository`; la release deve avere un asset `.apk`, preferibilmente con `universal` nel nome. Il download usa Download Manager e, al termine, apre l'installazione Android con la normale conferma del TIM Box. Il pacchetto deve mantenere `applicationId` e la stessa firma digitale delle versioni installate, altrimenti Android non lo considera un aggiornamento e i dati non possono essere conservati.
-
-Il workflow `.github/workflows/release-apk.yml` pubblica l'APK universale quando viene creato un tag `v*` (ad esempio `v1.32`). Prima di usare l'OTA va quindi impostato il repository nell'app e va pubblicata almeno una release con l'APK universale.
+Versione 1.30, codice 38, Android 8+. APK universale ARM32/ARM64 con lo stesso package e la stessa firma delle versioni precedenti, installabile come aggiornamento senza perdere configurazione e libreria.
 
 ## Decisioni definitive del VOD
 
-- **Catalogo predefinito: TMDB**, in italiano (`it-IT`), con locandine, backdrop, trame, generi, anno, trailer e paginazione progressiva.
-- **Fonte video predefinita: VixSrc**, indipendente dal catalogo. Il flusso HLS viene risolto e riprodotto nel player Media3 interno; quando il manifest dichiara tracce audio alternative viene accettata solo una traccia italiana.
-- **Piattaforme italiane:** Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, Max e Infinity+. Il filtro usa la disponibilità TMDB per l’Italia (`watch_region=IT`) e combina film e serie; non garantisce che la stessa piattaforma sia la fonte di riproduzione.
+- Catalogo predefinito: TMDB, in italiano (it-IT), con locandine, backdrop, trame, generi, anno, trailer e paginazione progressiva.
+- Fonte video predefinita: VixSrc, indipendente dal catalogo. Il flusso HLS viene risolto e riprodotto nel player Media3 interno; quando il manifest dichiara tracce audio alternative viene accettata solo una traccia italiana.
+- Piattaforme italiane: Netflix, Prime Video, Disney+, Apple TV+, NOW, Paramount+, Max e Infinity+. Il filtro usa la disponibilità TMDB per l’Italia (watch_region=IT) e combina film e serie; non garantisce che la stessa piattaforma sia la fonte di riproduzione.
 - Le preferenze già impostate dall’utente non vengono sovrascritte. Streaming Community, SC API, StreamingUnity, CineSearch e le fonti web non torrent restano disponibili come cataloghi o fonti alternative secondo le loro capacità.
 
 ## Nuova grafica VOD
 
-La schermata iniziale VOD è stata ricostruita come una Home OTT pensata per telecomando, mantenendo palette grafite/ambra e font Inter. Comprende menu laterale, hero panoramica con **Guarda**, **Trailer** e **Preferiti**, e righe orizzontali per **Continua a guardare**, **Novità**, **Top 10 della settimana**, **Consigliati per te**, **Esplora per piattaforma**, film e serie popolari. La pressione lunga su una locandina aggiorna **Da vedere**.
+La schermata iniziale VOD è stata ricostruita come una Home OTT pensata per telecomando, mantenendo palette grafite/ambra e font Inter. Comprende menu laterale, hero panoramica con Guarda, Trailer e Preferiti, e righe orizzontali per Continua a guardare, Novità, Top 10 della settimana, Consigliati per te, Esplora per piattaforma, film e serie popolari. La pressione lunga su una locandina aggiorna Da vedere.
 
-Film, Serie TV, Nuove uscite, Preferiti, Cerca e Impostazioni aprono il catalogo completo già collaudato. Un titolo scelto dalla Home viene caricato direttamente tramite ID TMDB, senza dipendere dai risultati testuali della ricerca. I filtri includono titolo, genere, anno, ordine e piattaforma; **Altri 20** continua la paginazione.
+Film, Serie TV, Nuove uscite, Preferiti, Cerca e Impostazioni aprono il catalogo completo già collaudato. Un titolo scelto dalla Home viene caricato direttamente tramite ID TMDB, senza dipendere dai risultati testuali della ricerca. I filtri includono titolo, genere, anno, ordine e piattaforma; Altri 20 continua la paginazione.
 
 ## Funzioni preservate
 
 Restano attive: player interno e scelta fonti, Riprendi/Inizia da capo, salvataggio avanzamento, episodio e stagione successivi, preferiti e Da vedere, cache con aggiornamento in sottofondo, ripristino focus, audio/sottotitoli, sincronizzazione cloud e dispositivi, backup, avvio su Canali o VOD, DNS Cloudflare, Vavoo con rinnovo token ogni 8 minuti, Daddy Live, Gomstream, Gecko, EPG e tutte le funzioni della Home TV. Il menu del player continua a scomparire automaticamente; BACK chiude prima il menu senza uscire involontariamente.
 
-Validazione 1.30: **253 test Android/Robolectric superati**. Compilazione Java completata con Android SDK 36/JDK 17. Restano da verificare sul dispositivo fisico TIM Box la resa finale, l’accessibilità reale dei servizi esterni e la sincronizzazione con il progetto Firebase reale.
+Validazione 1.30: 253 test Android/Robolectric superati. Compilazione Java completata con Android SDK 36/JDK 17. Restano da verificare sul dispositivo fisico TIM Box la resa finale, l’accessibilità reale dei servizi esterni e la sincronizzazione con il progetto Firebase reale.
 
 # Note storiche
 
