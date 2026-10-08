@@ -2,21 +2,22 @@
 name: Pubblica APK universale R. ITA TV
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Scarica sorgenti
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Configura Java 17
         uses: actions/setup-java@v4
@@ -49,7 +50,7 @@ jobs:
 
           test -s "$RUNNER_TEMP/rita-signing.p12"
 
-      - name: Compila i tre APK
+      - name: Compila APK firmati
         env:
           RITA_KEYSTORE_FILE: ${{ runner.temp }}/rita-signing.p12
           RITA_KEYSTORE_PASSWORD: ${{ secrets.RITA_KEYSTORE_PASSWORD }}
@@ -58,34 +59,34 @@ jobs:
         run: |
           gradle --no-daemon assembleDebug
 
-      - name: Seleziona solo APK universale
+      - name: Seleziona APK universale
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "APK generati:"
-          find build/outputs/apk/debug \
-            -type f -name "*.apk" -print
+          echo "Elenco APK generati:"
+          find build/outputs/apk -name "*.apk" -print
 
-          mapfile -t UNIVERSAL < <(
+          mapfile -t FILES < <(
             find build/outputs/apk/debug \
-              -type f -name "*universal*.apk" | sort
+              -type f -iname "*universal*.apk" | sort
           )
 
-          if [ "${#UNIVERSAL[@]}" -ne 1 ]; then
-            echo "ERRORE: Atteso un solo APK universale."
+          if [ "${#FILES[@]}" -ne 1 ]; then
+            echo "ERRORE: Atteso un APK universale."
             exit 1
           fi
 
           mkdir -p release-files
 
-          cp "${UNIVERSAL[0]}" \
+          cp "${FILES[0]}" \
             release-files/R-ITA-TV-universal.apk
 
-          echo "APK da pubblicare:"
+          echo "APK selezionato:"
           ls -lh release-files/
 
       - name: Verifica firma APK
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -93,20 +94,19 @@ jobs:
             verify --verbose --print-certs \
             release-files/R-ITA-TV-universal.apk
 
-      - name: Pubblica solo APK universale
+      - name: Allega APK alla Release esistente
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
+          gh release upload "$RELEASE_TAG" \
             release-files/R-ITA-TV-universal.apk \
-            --verify-tag \
-            --title "R. ITA TV $GITHUB_REF_NAME" \
-            --generate-notes \
-            --latest
+            --clobber
 
-      - name: Riepilogo Release
+      - name: Riepilogo
         run: |
-          echo "## R. ITA TV" >> "$GITHUB_STEP_SUMMARY"
-          echo "Release: $GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"
-          echo "APK pubblicati: 1 (universale)" >> "$GITHUB_STEP_SUMMARY"
-          echo "APK 32 e 64 bit separati: non pubblicati" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Release R. ITA TV" >> "$GITHUB_STEP_SUMMARY"
+          echo "Versione: ${{ github.event.release.tag_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK pubblicato: R-ITA-TV-universal.apk" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK pubblicati: 1" >> "$GITHUB_STEP_SUMMARY"
