@@ -9,16 +9,35 @@ import okhttp3.*;import okhttp3.dnsoverhttps.DnsOverHttps;
 /** Shared VOD transport. DNS changes never replace URLs or relax TLS checks. */
 final class VodNetwork {
  static final String ENDPOINT="https://cloudflare-dns.com/dns-query";
+ static final String[] PROVIDERS={"system","cloudflare","google","quad9","adguard"};
+ static final String[] DNS_LABELS={"Automatico (DNS dispositivo)","Cloudflare · Privacy","Google Public DNS","Quad9 · Protezione malware","AdGuard · Blocco pubblicità e tracker"};
+ static String provider(Context c){String p=VodSettings.prefs(c).getString("dnsProvider",null);if(p!=null)for(String known:PROVIDERS)if(known.equals(p))return p;return enabledLegacy(c)?"cloudflare":"system";}
+ private static boolean enabledLegacy(Context c){return VodSettings.prefs(c).getBoolean("cloudflareDns",true);}
+ static String endpoint(String provider){switch(provider){case "google":return "https://dns.google/dns-query";case "quad9":return "https://dns.quad9.net/dns-query";case "adguard":return "https://dns.adguard-dns.com/dns-query";default:return ENDPOINT;}}
+ static String bootstrap(String provider){switch(provider){case "google":return "8.8.8.8";case "quad9":return "9.9.9.9";case "adguard":return "94.140.14.14";default:return "1.1.1.1";}}
+ static String[] bootstraps(String provider){switch(provider){case "google":return new String[]{"8.8.8.8","8.8.4.4"};case "quad9":return new String[]{"9.9.9.9","149.112.112.112"};case "adguard":return new String[]{"94.140.14.14","94.140.15.15"};default:return new String[]{"1.1.1.1","1.0.0.1"};}}
+
  private static final CookieJar COOKIES=new CookieJar(){final Map<String,List<Cookie>> jar=new HashMap<>();public synchronized void saveFromResponse(HttpUrl url,List<Cookie> cookies){jar.put(url.host(),new ArrayList<>(cookies));}public synchronized List<Cookie> loadForRequest(HttpUrl url){List<Cookie> saved=jar.get(url.host());if(saved==null)return Collections.emptyList();List<Cookie> valid=new ArrayList<>();for(Cookie cookie:saved)if(cookie.matches(url))valid.add(cookie);return valid;}};
- private static volatile OkHttpClient client;private static volatile boolean cloudflare=true;private static volatile boolean television;private static volatile OkHttpClient metadataClient;
- static boolean enabled(Context c){return VodSettings.prefs(c).getBoolean("cloudflareDns",true);}
+ private static volatile OkHttpClient client;private static volatile String activeProvider="cloudflare";private static volatile boolean television;private static volatile OkHttpClient metadataClient;
+ static boolean enabled(Context c){return !provider(c).equals("system");}
  static boolean television(Context c){UiModeManager ui=(UiModeManager)c.getSystemService(Context.UI_MODE_SERVICE);return (ui!=null&&ui.getCurrentModeType()==android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)||c.getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK);}
- static synchronized void initialize(Context c){boolean wanted=enabled(c),tv=television(c);if(client==null||cloudflare!=wanted||television!=tv){cloudflare=wanted;television=tv;client=build(wanted,tv);metadataClient=build(false,tv).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();}}
- static synchronized OkHttpClient client(){if(client==null)client=build(cloudflare,television);return client;}
+ static synchronized void initialize(Context c){String wanted=provider(c);boolean tv=television(c);if(client==null||!activeProvider.equals(wanted)||television!=tv){activeProvider=wanted;television=tv;client=buildProvider(wanted,tv);metadataClient=build(false,tv).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();}}
+ static synchronized OkHttpClient client(){if(client==null)client=buildProvider(activeProvider,television);return client;}
  static synchronized OkHttpClient transport(HttpUrl target){if(target.host().equals("api.themoviedb.org")){if(metadataClient==null)metadataClient=build(false,television).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();return metadataClient;}return client();}
  static OkHttpClient build(boolean cloudflare){return build(cloudflare,false);}
- static OkHttpClient build(boolean cloudflare,boolean tv){Dns system=tv?new BoundedDns(new PreferIpv4(Dns.SYSTEM),6000):Dns.SYSTEM;OkHttpClient base=new OkHttpClient.Builder().dns(system).cookieJar(COOKIES).connectTimeout(8,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followSslRedirects(false).build();if(!cloudflare)return base;
-  try{OkHttpClient bootstrap=new OkHttpClient.Builder().connectTimeout(4,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).build();Dns doh=new DnsOverHttps.Builder().client(bootstrap).url(HttpUrl.get(ENDPOINT)).includeIPv6(!tv).bootstrapDnsHosts(InetAddress.getByAddress(new byte[]{1,1,1,1}),InetAddress.getByAddress(new byte[]{1,0,0,1})).build();return base.newBuilder().dns(new ShortCache(new FallbackDns(new BoundedDns(doh,6000),system))).build();}catch(UnknownHostException impossible){throw new IllegalStateException(impossible);}
+ static OkHttpClient build(boolean cloudflare,boolean tv){return buildProvider(cloudflare?"cloudflare":"system",tv);}
+ static OkHttpClient buildProvider(String provider,boolean tv){
+  Dns system=tv?new BoundedDns(new PreferIpv4(Dns.SYSTEM),6000):Dns.SYSTEM;
+  OkHttpClient base=new OkHttpClient.Builder().dns(system).cookieJar(COOKIES).connectTimeout(8,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followSslRedirects(false).build();
+  if("system".equals(provider))return base;
+  try{
+   OkHttpClient bootstrap=new OkHttpClient.Builder().connectTimeout(4,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).build();
+   DnsOverHttps.Builder builder=new DnsOverHttps.Builder().client(bootstrap).url(HttpUrl.get(endpoint(provider))).includeIPv6(!tv);
+   String[] ips=bootstraps(provider);
+   builder.bootstrapDnsHosts(InetAddress.getByName(ips[0]),InetAddress.getByName(ips[1]));
+   Dns doh=builder.build();
+   return base.newBuilder().dns(new ShortCache(new FallbackDns(new BoundedDns(doh,6000),system))).build();
+  }catch(UnknownHostException impossible){throw new IllegalStateException(impossible);}
  }
  static final class FallbackDns implements Dns{final Dns selected,fallback;FallbackDns(Dns a,Dns b){selected=a;fallback=b;}public List<InetAddress> lookup(String host)throws UnknownHostException{try{return selected.lookup(host);}catch(UnknownHostException e){return fallback.lookup(host);}}}
  static final class PreferIpv4 implements Dns{final Dns delegate;PreferIpv4(Dns d){delegate=d;}public List<InetAddress> lookup(String host)throws UnknownHostException{List<InetAddress> result=new ArrayList<>(delegate.lookup(host));result.sort(Comparator.comparing(a->!(a instanceof Inet4Address)));return result;}}
@@ -44,5 +63,12 @@ final class VodNetwork {
  static String error(Throwable e){if(e instanceof LinkageError)return "Errore di compatibilità Android";for(Throwable t=e;t!=null;t=t.getCause()){if(t instanceof HttpError){int code=((HttpError)t).status;return code==403?"Accesso rifiutato dal sito (HTTP 403)":code==401?"Il sito richiede accesso":"Sito risponde HTTP "+code;}if(t instanceof UnknownHostException)return "DNS: dominio non risolto";if(t instanceof SocketTimeoutException)return "Connessione scaduta";if(t instanceof SSLException)return "Errore connessione HTTPS";if(t instanceof ConnectException)return "Connessione al sito fallita";}
   if(e instanceof org.json.JSONException)return "Formato del sito non compatibile";String message=e.getMessage();if(message!=null&&(message.contains("Catalogo non riconosciuto")||message.contains("getJSONObject")))return "Catalogo del sito non riconosciuto";return "Fonte non disponibile";
  }
- static void settings(Activity a,Runnable changed){boolean current=enabled(a);new AlertDialog.Builder(a).setTitle("DNS per VOD e Gecko").setSingleChoiceItems(new String[]{"Cloudflare · DNS sicuro (HTTPS)","DNS del dispositivo"},current?0:1,(d,n)->{VodSettings.prefs(a).edit().putBoolean("cloudflareDns",n==0).apply();initialize(a);d.dismiss();changed.run();}).setNegativeButton("Chiudi",null).show();}
+ static void settings(Activity a,Runnable changed){
+  String selected=provider(a);int index=0;for(int i=0;i<PROVIDERS.length;i++)if(PROVIDERS[i].equals(selected))index=i;
+  new AlertDialog.Builder(a).setTitle("DNS VOD e Gecko").setSingleChoiceItems(DNS_LABELS,index,(d,n)->{
+   String choice=PROVIDERS[n];VodSettings.prefs(a).edit().putString("dnsProvider",choice).putBoolean("cloudflareDns",!"system".equals(choice)).apply();initialize(a);d.dismiss();changed.run();
+  }).setNeutralButton("Verifica connessione",(d,w)->{
+   new Thread(()->{String outcome;try{OkHttpClient c=buildProvider(provider(a),television(a));java.util.List<java.net.InetAddress> ips=c.dns().lookup("www.themoviedb.org");outcome=ips.isEmpty()?"DNS non disponibile":"DNS funzionante · "+provider(a);}catch(Exception e){outcome="Verifica DNS fallita: "+error(e);}final String text=outcome;a.runOnUiThread(()->Toast.makeText(a,text,Toast.LENGTH_LONG).show());},"RitaDnsCheck").start();
+  }).setNegativeButton("Chiudi",null).show();
+ }
 }

@@ -357,3 +357,6 @@ Restano soltanto Streaming Community (link principale conservato) e StreamingUni
 La lista fonti si aggiorna in parallelo e non blocca il catalogo. TMDB usa un trasporto separato con DNS del dispositivo, indipendente dai DNS scelti per le fonti. Sui dispositivi TV vengono preferiti gli indirizzi IPv4; Cloudflare richiede solo record A sui TV. Risoluzioni DNS e richieste hanno limiti di attesa; dopo 25 secondi il catalogo mostra un messaggio azionabile e scarta risposte tardive. Il comportamento sul TIM Box fisico richiede prova sul dispositivo.
 
 Correzione di compatibilità: URLEncoder.encode(String, Charset) richiede Android 13/API 33; VOD usa ora encode(String, String), disponibile anche su Android 12 e minSdk26. I test Robolectric usano java.net della JVM host, quindi questa incompatibilità richiede anche la verifica statica delle API Android.
+
+
+Aggiornamento 1.33: vedere CHANGELOG-1.33.md.
