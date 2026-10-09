@@ -167,7 +167,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);
-        if(saved==null)VodSession.reset();
+        // Keep session catalogue choice when navigating between sections; defaults initialise in VodSession.
         AppUpdater.cleanupAfterSuccessfulUpdate(this);
         AppUpdater.check(this,false);
         try { initialize();if(saved==null&&!getIntent().getBooleanExtra("openLive",false))startActivity(new Intent(this,VodActivity.class)); } catch (Throwable failure) { startupFailure(failure); }
