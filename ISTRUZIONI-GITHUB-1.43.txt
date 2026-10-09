@@ -1,0 +1,7 @@
+R. ITA TV 1.43 — correzione accesso impostazioni
+
+Sostituisci i file dello ZIP nella radice del repository rispettando i percorsi. Base richiesta: 1.42 già caricata. Avvia il workflow Android APK con gli stessi Secrets e la stessa chiave di firma.
+
+Installa il nuovo APK SOPRA la 1.42: non disinstallare e non cancellare i dati. Alla riapertura del VOD la Home di R. ITA carica il catalogo selezionato, con il menu laterale e il pulsante Impostazioni accanto a Cerca.
+
+VersionName 1.43 — VersionCode 51.
