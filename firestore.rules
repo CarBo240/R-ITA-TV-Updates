@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed(uid) { return request.auth != null && request.auth.uid == uid; }
+    function owner(uid) {
+      return signed(uid) && exists(/databases/$(database)/documents/owners/$(uid))
+        && get(/databases/$(database)/documents/owners/$(uid)).data.enabled == true;
+    }
+    match /owners/{uid} {
+      allow get: if signed(uid);
+      allow list, write: if false;
+    }
+    match /users/{uid}/records/{record} {
+      function valid() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['key','payload','deleted','revision','device','updatedAt'])
+          && d.keys().hasOnly(['key','payload','deleted','revision','device','updatedAt'])
+          && d.key is string && d.key.size() < 240
+          && d.key.matches('(fav|watch|history):[a-zA-Z0-9_-]+:[a-zA-Z0-9:_-]+')
+          && d.payload is string && d.payload.size() <= 200000
+          && d.deleted is bool && (!d.deleted || d.payload == '')
+          && d.revision is int && d.revision > 0
+          && d.device is string && d.device.size() > 0 && d.device.size() <= 80
+          && d.updatedAt == request.time;
+      }
+      allow read: if owner(uid);
+      allow create: if owner(uid) && valid() && request.resource.data.revision == 1;
+      allow update: if owner(uid) && valid()
+        && request.resource.data.key == resource.data.key
+        && request.resource.data.revision == resource.data.revision + 1;
+      // Keep deletion tombstones so an offline device cannot resurrect removed items.
+      allow delete: if false;
+    }
+    match /users/{uid}/devices/{device} {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid) && device.size() <= 80
+        && request.resource.data.keys().hasAll(['name','updatedAt'])
+        && request.resource.data.keys().hasOnly(['name','updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

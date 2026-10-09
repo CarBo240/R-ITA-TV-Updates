@@ -1,0 +1,21 @@
+{
+  "version": "1.24",
+  "versionCode": 32,
+  "androidUnitTests": {
+    "count": 221,
+    "result": "passed",
+    "sdks": [31, 35]
+  },
+  "nodeTests": {
+    "count": 3,
+    "result": "passed"
+  },
+  "changes": [
+    "HTTP 403 fallback uses an invisible Android System WebView, not Gecko",
+    "fallback is restricted to Streaming Community and StreamingUnity hosts",
+    "JavaScript session and WebView cookies are reused by the native HTTP client",
+    "the fallback covers both catalogue pages and playback-source resolution",
+    "the VOD player's Open with Gecko command was removed"
+  ],
+  "hardware": "1.24 not tested on actual TIM Box; the external provider can still reject Android System WebView"
+}

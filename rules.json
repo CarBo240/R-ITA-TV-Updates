@@ -1,0 +1,4 @@
+{
+  "domains": ["doubleclick.net", "googlesyndication.com", "googleadservices.com", "adservice.google.com", "popads.net", "popcash.net", "adsterra.com", "adsterra.net", "propellerads.com", "monetag.com", "onclicka.com", "onclickalgo.com", "onclkds.com", "intellipopup.com", "xtpdsreqdoz.com", "gzmftfhecexxm.com", "chewsever.com"],
+  "scriptPaths": ["/fmatrix.min.js", "/ejquery.jscroll.min.js", "/vjquery.jscroll.min.js"]
+}

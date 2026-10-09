@@ -1,0 +1,29 @@
+{
+  "logoIndex": "https://github.com/iptv-org/api",
+  "epg": "https://github.com/Belfagor2005/vavoo-player",
+  "bundled": {
+    "canale5": "https://static2.mediasetplay.mediaset.it/Mediaset_Italia_Production_-_Main/c5.png",
+    "italia1": "https://static2.mediasetplay.mediaset.it/Mediaset_Italia_Production_-_Main/i1.png",
+    "rete4": "https://static2.mediasetplay.mediaset.it/Mediaset_Italia_Production_-_Main/r4.png",
+    "la7": "https://guidatv.sky.it/logo/407la7hd_Light_Fit.png?checksum=d9bcc8bf-703c-4d33-823d-5171697fe8a5?tr=n-logo_80",
+    "tv8": "https://guidatv.sky.it/logo/260tv8hd_Light_Fit.png?checksum=938addc1e1adaac5be9fdf942d4c7f25?tr=n-logo_80",
+    "skysportuno": "https://guidatv.sky.it/logo/23skysportuno_Light_Fit.png?checksum=fc0371cf-624c-4def-ba61-947712639f2e?tr=n-logo_80",
+    "skysportcalcio": "https://guidatv.sky.it/logo/209skysportcalcio_Light_Fit.png?checksum=f6193dc9-1bcd-4609-a0a3-e13d181464d7?tr=n-logo_80",
+    "skysportf1": "https://guidatv.sky.it/logo/478skysportf1_Light_Fit.png?checksum=745d5eea-e5ec-41d8-b7d1-3d053bb3aae0?tr=n-logo_80",
+    "skysportmotogp": "https://guidatv.sky.it/logo/483skysportmotogp_Light_Fit.png?checksum=33c38de9-c5a3-4844-a558-6cac9a44b0ef?tr=n-logo_80",
+    "skycinemauno": "https://guidatv.sky.it/logo/202skycinemauno_Light_Fit.png?checksum=2945a0fc-4fd0-4f78-891d-b4b6e23e4ecf?tr=n-logo_80",
+    "skyuno": "https://guidatv.sky.it/logo/477skyuno_Light_Fit.png?checksum=cd37fd56-01f7-443e-a62d-ff99bf4c1b1c?tr=n-logo_80",
+    "skyatlantic": "https://guidatv.sky.it/logo/226skyatlantic_Light_Fit.png?checksum=55e0b430-8ac2-482a-80eb-d79e3678ea49?tr=n-logo_80",
+    "skytg24": "https://guidatv.sky.it/logo/521skytg24_Light_Fit.png?checksum=da35dbfe-8079-4ba1-adcb-fa9e2cfe3392?tr=n-logo_80",
+    "dazn1": "https://guidatv.sky.it/logo/566dazn1_Light_Fit.png?checksum=c755def2-ca8b-4941-a87c-345487727272?tr=n-logo_80",
+    "discoverychannel": "https://www.tivu.tv/_common/images/loghi_epg/logo_15212.png",
+    "rai1": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai1.png",
+    "rai2": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai2.png",
+    "rai3": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rai3.png",
+    "rainews24": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/rainews24.png",
+    "nove": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/nove.png",
+    "raisport": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raisport.png",
+    "raiyoyo": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/raiyoyo.png",
+    "realtime": "https://cdn.jsdelivr.net/gh/Tundrak/IPTV-Italia/logos/realtime.png"
+  }
+}
