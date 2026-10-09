@@ -1,0 +1,7 @@
+package it.carmine.streamplayer;
+import android.content.Intent;import android.view.View;import org.junit.*;import org.junit.runner.RunWith;import org.robolectric.*;import org.robolectric.annotation.Config;import org.robolectric.android.controller.ActivityController;import static org.junit.Assert.*;import static org.robolectric.Shadows.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=35)
+public class VodHomeRecoveryTest {
+ @Before public void clear(){VodSettings.prefs(RuntimeEnvironment.getApplication()).edit().clear().putString("catalogSource","cb01").commit();VodSession.reset();}
+ @Test public void cb01KeepsRitaHomeAndSettingsAccessible(){try(ActivityController<VodActivity> controller=Robolectric.buildActivity(VodActivity.class).create().start().resume()){VodActivity activity=controller.get();assertFalse(activity.isFinishing());assertNotNull(activity.getWindow().getDecorView().findViewWithTag("vodHomeScroll"));assertNotNull(activity.getWindow().getDecorView().findViewWithTag("vodSidebar"));assertNull(shadowOf(activity).getNextStartedActivity());View settings=activity.getWindow().getDecorView().findViewWithTag("vodHomeSettings");assertNotNull(settings);assertEquals(View.VISIBLE,settings.getVisibility());settings.performClick();Intent intent=shadowOf(activity).getNextStartedActivity();assertNotNull(intent);assertEquals(VodSettingsActivity.class.getName(),intent.getComponent().getClassName());assertEquals("cb01",VodSession.catalogue(activity).id);}}
+}
