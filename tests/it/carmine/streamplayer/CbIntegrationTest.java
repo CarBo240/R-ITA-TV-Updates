@@ -1,0 +1,10 @@
+package it.carmine.streamplayer;
+import android.content.Context;import org.junit.*;import org.junit.runner.RunWith;import org.robolectric.*;import org.robolectric.annotation.Config;import static org.junit.Assert.*;
+@RunWith(RobolectricTestRunner.class) @Config(sdk=35)
+public class CbIntegrationTest {
+ private Context context;
+ @Before public void clear(){context=RuntimeEnvironment.getApplication();VodSettings.prefs(context).edit().clear().commit();VodSession.reset();}
+ @Test public void cataloguePersistsAcrossVideoSessionReset(){assertEquals("tmdb",VodSession.catalogue(context).id);VodSettings.prefs(context).edit().putString("catalogSource","cb01").commit();assertEquals("cb01",VodSession.catalogue(context).id);assertEquals("vixsrc",VodSession.video(context).id);VodSession.reset();assertEquals("cb01",VodSession.catalogue(context).id);assertEquals("vixsrc",VodSession.video(context).id);VodSettings.prefs(context).edit().putString("catalogSource","streamingcommunity").commit();assertEquals("streamingcommunity",VodSession.catalogue(context).id);}
+ @Test public void mixdropAcceptsOnlyTheSelectedMovie(){String page="https://m1xdrop.net/e/abc123";assertEquals("https://cdn.mxcontent.net/v2/abc123.mp4",CbMixdropConfig.extract("MDCore.wurl='//cdn.mxcontent.net/v2/abc123.mp4';",page));assertEquals("",CbMixdropConfig.extract("MDCore.wurl='https://ads.example/ad.mp4';",page));assertEquals("",CbMixdropConfig.extract("MDCore.wurl='https://cdn.mxcontent.net/v2/wrong.mp4';",page));assertEquals("https://m1xdrop.net/e/abc123",CbLinkTargets.embed("https://m1xdrop.net/f/abc123"));}
+ @Test public void movieSourceListFiltersAdvertising(){java.util.List<CbStreamChoices.Choice> choices=CbStreamChoices.parse("<a href='https://stayonline.pro/l/ABC/' >Mixdrop Streaming</a><iframe src='https://advert.example/player'></iframe><a href='https://uprot.net/msf/xyz'>Maxstream Streaming</a>","https://cb01uno.wiki/film");assertEquals(2,choices.size());assertTrue(choices.get(0).label.toLowerCase().contains("mixdrop"));}
+}
