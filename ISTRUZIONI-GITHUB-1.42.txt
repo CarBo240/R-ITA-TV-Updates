@@ -1,0 +1,9 @@
+R. ITA TV 1.42 — file da aggiungere o sostituire
+
+Estrai lo ZIP e copia tutti i file nella radice del repository rispettando i percorsi. Non creare una cartella esterna. Sono inclusi solo file nuovi/modificati rispetto alla 1.41: conserva gli altri sorgenti, risorse e la configurazione esistente.
+
+Avvia il workflow Android APK. La firma utilizza gli stessi Secrets e la stessa chiave già configurati. VersionName 1.42, VersionCode 50.
+
+Prova: VOD > Impostazioni > Catalogo visualizzato > CB01; ritorna al VOD, cerca un film, seleziona la locandina e una fonte Mixdrop. Le fonti non supportate sono indicate. Cambia catalogo e riavvia per verificare che la scelta resti salvata. La fonte video predefinita conserva VixSrc.
+
+Non sostituire o cancellare le impostazioni Firebase né la chiave di firma.

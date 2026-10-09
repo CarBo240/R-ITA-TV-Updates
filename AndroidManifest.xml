@@ -14,6 +14,7 @@
   <activity android:name="it.carmine.streamplayer.CloudActivity" android:exported="false"/>
   <activity android:name="it.carmine.streamplayer.BackupActivity" android:exported="false"/>
   <activity android:name="it.carmine.streamplayer.TvSearchActivity" android:exported="false"/>
+  <activity android:name="it.carmine.streamplayer.CbCatalogueActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodSettingsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodCatalogueActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>

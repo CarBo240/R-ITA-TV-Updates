@@ -1,5 +1,5 @@
-> **Versione corrente: 1.41.** Per GitHub e la firma consultare
-> `ISTRUZIONI-GITHUB-1.41.txt`; modifiche e limiti in `CHANGELOG-1.41.md`.
+> **Versione corrente: 1.42.** Per GitHub e la firma consultare
+> `ISTRUZIONI-GITHUB-1.42.txt`; modifiche e limiti in `CHANGELOG-1.42.md`.
 
 # R. ITA TV 1.31 — Home VOD OTT, TMDB e VixSrc
 
