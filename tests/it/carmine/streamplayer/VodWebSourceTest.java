@@ -8,7 +8,7 @@ public class VodWebSourceTest {
  @Test public void directHlsIsVerifiedAndIframeLookupIsBounded()throws Exception{VodSource.Stream stream=VodWebSource.resolve("https://site.example/movie/42",(u,r)->{if(u.contains("/movie/"))return "<iframe src='https://video.example/embed/42'></iframe>";if(u.contains("/embed/"))return "<script>file: 'https://cdn.example/video.m3u8?token=current'</script>";return "#EXTM3U\n";});assertEquals("https://cdn.example/video.m3u8?token=current",stream.url);List<String> calls=new ArrayList<>();try{VodWebSource.resolve("https://site.example/movie/42",(u,r)->{calls.add(u);return "<iframe src='/loop/"+calls.size()+"'></iframe>";});fail();}catch(Exception expected){}assertEquals(5,calls.size());}
  @Test public void plainListDropsTorrentSitesWithoutDroppingVideoSites()throws Exception{List<VodSettings.Source> list=VodSettings.parse("https://1337x.to\nhttps://rargb.to\nhttps://streamingunity.fun\nhttps://streamingcommunityz.academy\nhttps://anime.example\n");assertEquals(3,list.size());assertTrue(list.get(0).nativeCatalog());assertTrue(list.get(1).nativeCatalog());assertFalse(list.get(2).nativeCatalog());}
  @Test public void webSearchReturnsNativeSourceOnlyAfterPlaylistCheck()throws Exception{VodSettings.Source source=new VodSettings.Source("web","Site","https://site.example","web");VodProviders.Match m=VodWebSource.search(source,wanted(),(u,r)->{if(u.contains("?s="))return "<a href='/movie/42'>Titolo del film</a>";if(u.contains("/movie/42"))return "<video><source src='https://cdn.example/video.m3u8'></video>";if(u.contains(".m3u8"))return "#EXTM3U\n";return "<form action='/'><input name='s'></form>"+String.join("",Collections.nCopies(100,"padding"));});assertNotNull(m.title);assertTrue(m.nativeVideo);assertEquals("https://site.example/movie/42",m.page);assertTrue(m.title.json.has("_web_page"));}
- @Test public void pageWithoutDirectVideoRemainsExplicitGeckoChoice()throws Exception{VodProviders.Match m=VodWebSource.search(new VodSettings.Source("web","Site","https://site.example","web"),wanted(),(u,r)->{if(u.contains("?s="))return "<a href='/movie/42'>Titolo del film</a>";if(u.contains("/movie/"))return "<p>Player JavaScript</p>";return "<form action='/'><input name='s'></form>"+String.join("",Collections.nCopies(100,"padding"));});assertNotNull(m.title);assertFalse(m.nativeVideo);assertTrue(m.note.contains("Gecko"));}
+ @Test public void pageWithoutDirectVideoRemainsExplicitGeckoChoice()throws Exception{VodProviders.Match m=VodWebSource.search(new VodSettings.Source("web","Site","https://site.example","web"),wanted(),(u,r)->{if(u.contains("?s="))return "<a href='/movie/42'>Titolo del film</a>";if(u.contains("/movie/"))return "<p>Player JavaScript</p>";return "<form action='/'><input name='s'></form>"+String.join("",Collections.nCopies(100,"padding"));});assertNotNull(m.title);assertFalse(m.nativeVideo);assertTrue(m.note.contains("browser interno"));}
  @Test public void eachIframeUsesItsOwnParentAndFailuresDoNotHideOtherHosts()throws Exception{
   VodSource.Stream stream=VodWebSource.resolve("https://cb01uno.wiki/movie/42",(u,r)->{
    if(u.endsWith("/movie/42"))return "<iframe src='https://host.example/trailer'></iframe><iframe src='https://bad.example/embed'></iframe><iframe src='https://good.example/embed'></iframe>";
@@ -18,5 +18,21 @@ public class VodWebSourceTest {
    if(u.contains("cdn.example")){assertEquals("https://child.example/embed",r);return "#EXTM3U\n";}
    fail("Unexpected URL "+u);return "";
   });assertEquals("https://cdn.example/movie.m3u8",stream.url);
+ }
+ @Test public void movieLabelsAcceptYearAndQualityButRejectWrongYear()throws Exception{
+  VodSource.Title title=new VodSource.Title(new JSONObject().put("id",42).put("name","Titolo del film").put("release_date","2024-01-01").put("type","movie"),"");
+  assertTrue(VodWebSource.labelMatches("Titolo del film (2024) [HD]",title));
+  assertFalse(VodWebSource.labelMatches("Titolo del film (2023)",title));assertFalse(VodWebSource.labelMatches("Titolo del film [HD] (2023)",title));assertTrue(VodWebSource.labelMatches("Titolo del film (2024) - CB01",title));
+  assertEquals("https://cb01uno.wiki/movie/42",VodWebSource.titlePage("<a href='/movie/42'><h2>Titolo del film (2024)</h2><p>Trama e altri dati</p></a>","https://cb01uno.wiki/?s=titolo",title));
+ }
+ @Test public void dynamicSearchIsOfferedWithoutClaimingAvailability()throws Exception{
+  VodProviders.Match pending=VodWebSource.search(new VodSettings.Source("cb01","CB01","https://cb01uno.wiki","web"),wanted(),(u,r)->{throw new java.io.IOException("403");});
+  assertNotNull(pending.title);assertTrue(pending.title.json.optBoolean("_web_search"));assertFalse(pending.nativeVideo);assertTrue(pending.note.contains("ricerca dinamica"));
+  VodProviders.Match generic=VodWebSource.search(new VodSettings.Source("other","Other","https://other.example","web"),wanted(),(u,r)->{throw new java.io.IOException("403");});assertNull(generic.title);
+ }
+ @Test public void manualMoviePageMustMatchTitle()throws Exception{
+  assertEquals("https://cb01uno.wiki/movie/42",VodWebSource.currentTitlePage("<h1>Titolo del film streaming ITA</h1>","https://cb01uno.wiki/movie/42",wanted()));
+  assertEquals("",VodWebSource.currentTitlePage("<h1>Titolo diverso</h1>","https://cb01uno.wiki/movie/42",wanted()));
+  assertEquals("",VodWebSource.currentTitlePage("<h1>Titolo del film</h1>","https://cb01uno.wiki/search",wanted()));
  }
 }

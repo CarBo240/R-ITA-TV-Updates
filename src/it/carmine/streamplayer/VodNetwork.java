@@ -65,7 +65,7 @@ final class VodNetwork {
  }
  static void settings(Activity a,Runnable changed){
   String selected=provider(a);int index=0;for(int i=0;i<PROVIDERS.length;i++)if(PROVIDERS[i].equals(selected))index=i;
-  new AlertDialog.Builder(a).setTitle("DNS VOD e Gecko").setSingleChoiceItems(DNS_LABELS,index,(d,n)->{
+  new AlertDialog.Builder(a).setTitle("DNS VOD").setSingleChoiceItems(DNS_LABELS,index,(d,n)->{
    String choice=PROVIDERS[n];VodSettings.prefs(a).edit().putString("dnsProvider",choice).putBoolean("cloudflareDns",!"system".equals(choice)).apply();initialize(a);d.dismiss();changed.run();
   }).setNeutralButton("Verifica connessione",(d,w)->{
    new Thread(()->{String outcome;try{OkHttpClient c=buildProvider(provider(a),television(a));java.util.List<java.net.InetAddress> ips=c.dns().lookup("www.themoviedb.org");outcome=ips.isEmpty()?"DNS non disponibile":"DNS funzionante · "+provider(a);}catch(Exception e){outcome="Verifica DNS fallita: "+error(e);}final String text=outcome;a.runOnUiThread(()->Toast.makeText(a,text,Toast.LENGTH_LONG).show());},"RitaDnsCheck").start();

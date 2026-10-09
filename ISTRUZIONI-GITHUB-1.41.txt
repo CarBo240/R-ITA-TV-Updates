@@ -1,0 +1,29 @@
+R. ITA TV 1.41 — caricamento completo e firma
+
+1. Estrai lo ZIP. Carica nella RADICE dello stesso repository tutte le
+   cartelle e i file estratti, sostituendo quelli esistenti.
+   Non caricare soltanto build.gradle o la cartella src.
+   Non aggiungere una cartella esterna R-ITA-TV-v1.41 alla radice.
+2. Devono esserci src, tests, scripts, assets, res e .github con i loro
+   contenuti, compreso il nuovo sorgente:
+   src/it/carmine/streamplayer/VodWebSearchScript.java
+3. Mantieni gli stessi Secrets RITA_KEYSTORE_BASE64,
+   RITA_KEYSTORE_PASSWORD e RITA_KEY_PASSWORD. Alias: player.
+   La chiave privata non è nel pacchetto; viene recuperata dai Secrets.
+4. Fai Commit changes e avvia una NUOVA esecuzione con Run workflow.
+   Non rieseguire una vecchia build, che usa ancora i vecchi sorgenti.
+5. Scarica l'artifact R-ITA-TV-v1.41-APK e installa la variante appropriata.
+
+VersionName 1.41 — VersionCode 49.
+Lo ZIP contiene sorgenti, non APK già compilati.
+
+PROVA
+- Home VOD > Esplora per piattaforma: sposta il focus con sinistra/destra.
+  La piattaforma selezionata mostra il bordo bianco sopra il logo.
+- Scheda film > Altre fonti > CB01/Altadefinizione.
+- Se appare Verifica nel sito, premi OK: l'app prova la ricerca nel sito.
+  Se non riesce a confermarla, puoi selezionare il risultato nel browser
+  dell'app. Un player/stream compatibile viene passato al player nativo.
+- Gecko non compare più nel percorso VOD.
+
+Comunica titolo del film, fonte e messaggio preciso se la prova fallisce.
