@@ -9,4 +9,14 @@ public class VodWebSourceTest {
  @Test public void plainListDropsTorrentSitesWithoutDroppingVideoSites()throws Exception{List<VodSettings.Source> list=VodSettings.parse("https://1337x.to\nhttps://rargb.to\nhttps://streamingunity.fun\nhttps://streamingcommunityz.academy\nhttps://anime.example\n");assertEquals(3,list.size());assertTrue(list.get(0).nativeCatalog());assertTrue(list.get(1).nativeCatalog());assertFalse(list.get(2).nativeCatalog());}
  @Test public void webSearchReturnsNativeSourceOnlyAfterPlaylistCheck()throws Exception{VodSettings.Source source=new VodSettings.Source("web","Site","https://site.example","web");VodProviders.Match m=VodWebSource.search(source,wanted(),(u,r)->{if(u.contains("?s="))return "<a href='/movie/42'>Titolo del film</a>";if(u.contains("/movie/42"))return "<video><source src='https://cdn.example/video.m3u8'></video>";if(u.contains(".m3u8"))return "#EXTM3U\n";return "<form action='/'><input name='s'></form>"+String.join("",Collections.nCopies(100,"padding"));});assertNotNull(m.title);assertTrue(m.nativeVideo);assertEquals("https://site.example/movie/42",m.page);assertTrue(m.title.json.has("_web_page"));}
  @Test public void pageWithoutDirectVideoRemainsExplicitGeckoChoice()throws Exception{VodProviders.Match m=VodWebSource.search(new VodSettings.Source("web","Site","https://site.example","web"),wanted(),(u,r)->{if(u.contains("?s="))return "<a href='/movie/42'>Titolo del film</a>";if(u.contains("/movie/"))return "<p>Player JavaScript</p>";return "<form action='/'><input name='s'></form>"+String.join("",Collections.nCopies(100,"padding"));});assertNotNull(m.title);assertFalse(m.nativeVideo);assertTrue(m.note.contains("Gecko"));}
+ @Test public void eachIframeUsesItsOwnParentAndFailuresDoNotHideOtherHosts()throws Exception{
+  VodSource.Stream stream=VodWebSource.resolve("https://cb01uno.wiki/movie/42",(u,r)->{
+   if(u.endsWith("/movie/42"))return "<iframe src='https://host.example/trailer'></iframe><iframe src='https://bad.example/embed'></iframe><iframe src='https://good.example/embed'></iframe>";
+   if(u.contains("bad.example"))throw new java.io.IOException("Unavailable");
+   if(u.contains("good.example")){assertEquals("https://cb01uno.wiki/movie/42",r);return "<iframe src='https://child.example/embed'></iframe>";}
+   if(u.contains("child.example")){assertEquals("https://good.example/embed",r);return "file: 'https://cdn.example/movie.m3u8'";}
+   if(u.contains("cdn.example")){assertEquals("https://child.example/embed",r);return "#EXTM3U\n";}
+   fail("Unexpected URL "+u);return "";
+  });assertEquals("https://cdn.example/movie.m3u8",stream.url);
+ }
 }
