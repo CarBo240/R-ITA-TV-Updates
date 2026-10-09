@@ -1,0 +1,9 @@
+.gradle/
+build/
+local.properties
+*.apk
+*.idsig
+
+local-test-key.p12
+*.p12
+*.jks

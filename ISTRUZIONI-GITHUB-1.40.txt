@@ -1,0 +1,23 @@
+R. ITA TV 1.40 — GitHub e firma
+
+Carica il contenuto dello ZIP nella radice dello stesso repository della 1.39.
+Sostituisci i file esistenti; non caricare lo ZIP come unico file del progetto.
+Conserva i Secrets RITA_KEYSTORE_BASE64, RITA_KEYSTORE_PASSWORD e
+RITA_KEY_PASSWORD già presenti. L'alias resta player, come nella 1.39.
+La chiave di firma non è inclusa in questi sorgenti: viene recuperata dai
+Secrets durante la compilazione. Non serve crearne una nuova.
+
+Apri Actions > Compila APK R. ITA TV > Run workflow oppure effettua un push.
+Al termine scarica l'artifact R-ITA-TV-v1.40-APK. Contiene le varianti arm64,
+armeabi-v7a e universale. Il workflow verifica la firma dell'APK universale.
+La compatibilità dell'aggiornamento dipende dall'uso della stessa chiave
+con cui è stata firmata l'app già installata.
+
+Il workflow Release conserva il comportamento della 1.39: dopo la
+pubblicazione della Release compila e allega solo R-ITA-TV-universal.apk.
+
+VersionName 1.40 — VersionCode 48.
+Sorgenti verificati nei controlli descritti in CHANGELOG-1.40.md.
+APK non compilato localmente: verificare l'esito GitHub Actions prima
+ dell'installazione. Per le prove delle fonti vedi
+PROVA-CINEBLOG-ALTADEFINIZIONE-1.40.txt.

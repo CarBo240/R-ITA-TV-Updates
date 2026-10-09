@@ -1,0 +1,20 @@
+R. ITA TV 1.40 — SORGENTI DI PROVA
+
+1. Carica nel repository GitHub i contenuti di questo ZIP, conservando i
+   Secrets di firma già usati per la versione 1.39.
+2. Avvia Actions > Compila APK R. ITA TV. Scarica R-ITA-TV-v1.40-APK e
+   installa la variante universale oppure quella appropriata al TIM Box.
+3. Apri VOD, scegli un FILM e apri Altre fonti.
+4. Seleziona Cineblog/CB01 oppure Altadefinizione.
+5. 'Disponibile · player interno' apre direttamente Media3.
+   'Pagina trovata · prova player interno' prepara il player web: se serve,
+   avvia il video. Quando riconosce un flusso valido passa a Media3.
+6. Se non rileva il video, usa Ricarica oppure Gecko; BACK torna indietro.
+
+Per il riscontro comunica titolo del film, fonte scelta e messaggio esatto.
+Se mostra Titolo non trovato, 403 o Site Unavailable, il problema è nella
+ricerca/accesso al sito: il riconoscimento del player non è ancora partito.
+
+Questa è una prima prova per i film. Non include l'integrazione nativa delle
+stagioni/episodi. Non contiene APK già compilati. Consulta CHANGELOG-1.40.md
+per modifiche, verifiche e limiti.
