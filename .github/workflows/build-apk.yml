@@ -36,6 +36,8 @@ jobs:
           test -n "$RITA_KEYSTORE_BASE64"
           printf '%s' "$RITA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/rita-signing.p12"
           test -s "$RUNNER_TEMP/rita-signing.p12"
+      - name: Verifica link player web
+        run: bash scripts/check-web-movies.sh
       - name: Compila tre APK
         env:
           RITA_KEYSTORE_FILE: ${{ runner.temp }}/rita-signing.p12
@@ -53,7 +55,7 @@ jobs:
       - name: Artifacts con tre varianti
         uses: actions/upload-artifact@v4
         with:
-          name: R-ITA-TV-v1.34-APK
+          name: R-ITA-TV-v1.40-APK
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
