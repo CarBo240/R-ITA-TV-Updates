@@ -1,0 +1,16 @@
+R. ITA TV 1.44 – File da sostituire sulla 1.43
+
+Copia nella radice del repository le cartelle e build.gradle dello ZIP, conservando i percorsi. I due nuovi file Java vanno aggiunti insieme agli altri. Non cancellare altre cartelle. Poi esegui la compilazione GitHub con la firma già configurata.
+
+Modifiche:
+- Home CB01 con lo stesso carosello, locandine e menu di R. ITA.
+- Ricerca Film/Serie con classificazione e lettura dei collegamenti alle sezioni serie presenti sul sito.
+- Sezioni e ricerca CB01 usano la griglia nativa del catalogo; rimosso il passaggio alla schermata dell'app di prova.
+- Clic sulla locandina: finestra Fonti video nella schermata corrente. Si carica solo l'URL esatto della locandina; nessuna nuova ricerca per nome.
+- Mixdrop e collegamenti StayOnline verso Mixdrop: estrazione nativa, verifica risposta video e apertura nel player Media3 già presente.
+- Chiusura della finestra o dell'Activity interrompe i caricamenti.
+- La scelta del catalogo e la fonte video restano indipendenti come nella 1.43.
+
+Verifica: compilazione Java e 6 test Robolectric superati. Da provare su dispositivo reale: elenco serie del dominio configurato, selezione delle fonti, riproduzione. Le strutture HTML delle serie possono richiedere ulteriori adattamenti: questa versione non introduce ancora una nuova navigazione CB01 per stagioni/episodi.
+
+Altadefinizione, Maxstream e SportOnline: nessuna nuova estrazione in questo pacchetto. Non sono dichiarati risolti.
