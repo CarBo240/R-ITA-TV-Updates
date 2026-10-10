@@ -1,0 +1,5 @@
+package it.carmine.streamplayer;
+import java.util.*;
+public class RaiLicenseConfigCheck {
+ public static void main(String[] args){Map<String,String> h=new LinkedHashMap<>();String u=RaiLicenseConfig.normalize("https://rai.example.org/license?Authorization=abc%2Bdef%3D&kid=123","nagra",h);if(!"abc+def=".equals(h.get("nv-authorizations"))||u.contains("Authorization")||!u.contains("kid=123"))throw new AssertionError("Nagra authorization mapping");h.clear();String azure="https://azure.example.org/Widevine/?token=jwt";if(!azure.equals(RaiLicenseConfig.normalize(azure,"azure",h))||!h.isEmpty())throw new AssertionError("Non-Nagra changed");h.put("Nv-Authorizations","old");RaiLicenseConfig.normalize("https://rai.example.org/license?Authorization=fresh","NAGRA",h);if(h.size()!=1||!"fresh".equals(h.get("nv-authorizations")))throw new AssertionError("Duplicate or stale header");h.clear();String clean="https://rai.example.org/license";if(!clean.equals(RaiLicenseConfig.normalize(clean,"nagra",h))||!h.isEmpty())throw new AssertionError("Token manufactured");System.out.println("4 license authorization fixture checks passed");}
+}
