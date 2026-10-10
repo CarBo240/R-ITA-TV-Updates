@@ -6,7 +6,7 @@
  var im=a.querySelector('img')||(card&&card.querySelector('img'));if(!im)return;
  var h=card&&card.querySelector('h1,h2,h3,h4,h5,h6,.name,.title,.latest-anime-title'),t=(a.getAttribute('data-title')||a.getAttribute('title')||(h?h.textContent:'')||im.alt||a.textContent||'').trim();
  var u=a.href.split('#')[0];if(t.length<2||t.length>200||!/^https:/.test(u)||new URL(u).host!==location.host||u.split('?')[0]===location.href.split('?')[0]||/\/(?:tag|category|page|genre|filter)\/|[?&](?:s|q|story|keyword)=/.test(u)||!words.every(w=>norm(t).includes(w)))return;
- var context=t+' '+u+' '+(card?card.className+' '+card.textContent:'');var type=seriesOnly||/serie[ -]?tv|stagion|season|episod|\/tv-|category-series|\bTV\s*-\s*20/.test(context.toLowerCase())?'tv':anime?'unknown':'movie';if(mode===1&&type==='tv'||mode===2&&type==='movie')return;
+ var context=t+' '+u+' '+(card?card.className+' '+card.textContent:'');var type=seriesOnly||/serie[ -]?tv|stagion|season|episod|\/tv-|category-series|\btv\s*-\s*20/.test(context.toLowerCase())?'tv':anime?'unknown':'movie';if(mode===1&&type==='tv'||mode===2&&type==='movie')return;
  var image=im.getAttribute('data-src')||im.getAttribute('data-lazy-src')||im.currentSrc||im.src;try{image=new URL(image,location.href).href}catch(e){image=''};
  if(seen[u])return;seen[u]=true;out.push({title:t,url:u,image:image,type:type});
  });
