@@ -39,7 +39,7 @@ final class VodSource {
  private static void append(Map<String,Title> out,JSONArray list,String cdn){if(list==null)return;for(int i=0;i<list.length();i++){JSONObject j=list.optJSONObject(i);if(j==null)continue;Title t=new Title(j,cdn);if(t.id.matches("[0-9]+")&&!t.slug.isEmpty())out.put(t.id,t);}}
  static JSONObject page(String home,String path,Fetcher f)throws Exception{return props(f.get(fresh(home+path),home+"/"));}
  static Title title(JSONObject p,String home)throws Exception{return new Title(p.getJSONObject("title"),p.optString("cdn_url",home.replace("https://","https://cdn.")));}
- static final class Stream {final String url,referer;Stream(String u,String r){url=u;referer=r;}}
+ static final class Stream {final String url,referer,license,mime;final Map<String,String> licenseHeaders;Stream(String u,String r){this(u,r,"","",Collections.emptyMap());}Stream(String u,String r,String l,String m,Map<String,String> h){url=u;referer=r;license=l;mime=m;licenseHeaders=h;}}
  static String iframe(String html,String parent)throws Exception{Matcher m=Pattern.compile("<iframe\\b[^>]*\\bsrc\\s*=\\s*([\"'])(.*?)\\1",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(html);if(!m.find())throw new IOException("Player non disponibile");return new URI(parent).resolve(Html.fromHtml(m.group(2),0).toString()).toString();}
  static String playlist(String html)throws Exception{
   Matcher master=Pattern.compile("window\\.masterPlaylist\\s*=\\s*\\{(.*?)\\n\\s*\\}\\s*(?:;|\\n)",Pattern.DOTALL).matcher(html);if(!master.find())throw new IOException("Il server video non espone una playlist compatibile");String block=master.group(1);
