@@ -1,12 +1,16 @@
 (function(q,mode){
  function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/ +/g,' ').trim()}
  var words=norm(q).split(' ').filter(Boolean),out=[],seen={},anime=/animeworld|animeunity|animesaturn/.test(location.host),seriesOnly=/guardaserie/.test(location.host);
+ if(mode===3&&/(^|\.)raiplay\.it$/.test(location.hostname)){
+ document.querySelectorAll('a[href]').forEach(function(a){var u;try{u=new URL(a.href,location.href)}catch(e){return}if(u.origin!==location.origin||!/^\/dirette\/[^/]+(?:\.html)?$/.test(u.pathname))return;var im=a.querySelector('img'),t=(a.getAttribute('title')||(im&&im.alt)||a.textContent||'').trim();if(!t||seen[u.href]||!words.every(w=>norm(t).includes(w)))return;seen[u.href]=true;var image=im&&(im.getAttribute('data-src')||im.currentSrc||im.src)||'';out.push({title:t,url:u.href,image:image?new URL(image,location.origin).href:'',type:'live'});});return JSON.stringify(out);
+ }
+
  document.querySelectorAll('a[href]').forEach(function(a){
  var card=a.closest('article,.movie-item,.movie-card,.shortstory,.film-item,.card,.item,.anime,.film-poster,.poster,.post,.latest-anime-container')||a.parentElement;
  var im=a.querySelector('img')||(card&&card.querySelector('img'));if(!im)return;
  var h=card&&card.querySelector('h1,h2,h3,h4,h5,h6,.name,.title,.latest-anime-title'),t=(a.getAttribute('data-title')||a.getAttribute('title')||(h?h.textContent:'')||im.alt||a.textContent||'').trim();
- var u=a.href.split('#')[0];if(t.length<2||t.length>200||!/^https:/.test(u)||new URL(u).host!==location.host||u.split('?')[0]===location.href.split('?')[0]||/\/(?:tag|category|page|genre|filter)\/|[?&](?:s|q|story|keyword)=/.test(u)||!words.every(w=>norm(t).includes(w)))return;
- var context=t+' '+u+' '+(card?card.className+' '+card.textContent:'');var type=seriesOnly||/serie[ -]?tv|stagion|season|episod|\/tv-|category-series|\bTV\s*-\s*20/.test(context.toLowerCase())?'tv':anime?'unknown':'movie';if(mode===1&&type==='tv'||mode===2&&type==='movie')return;
+ var u=a.href.split('#')[0];if(/(^|\.)raiplay\.it$/.test(location.hostname)&&!/^\/(programmi|video)\//.test(new URL(u).pathname))return;if(t.length<2||t.length>200||!/^https:/.test(u)||new URL(u).host!==location.host||u.split('?')[0]===location.href.split('?')[0]||/\/(?:tag|category|page|genre|filter)\/|[?&](?:s|q|story|keyword)=/.test(u)||!words.every(w=>norm(t).includes(w)))return;
+ var context=t+' '+u+' '+(card?card.className+' '+card.textContent:'');var type=seriesOnly||/serie[ -]?tv|stagion|season|episod|\/tv-|category-series|\btv\s*-\s*20/.test(context.toLowerCase())?'tv':anime?'unknown':'movie';if(mode===1&&type==='tv'||mode===2&&type==='movie')return;
  var image=im.getAttribute('data-src')||im.getAttribute('data-lazy-src')||im.currentSrc||im.src;try{image=new URL(image,location.href).href}catch(e){image=''};
  if(seen[u])return;seen[u]=true;out.push({title:t,url:u,image:image,type:type});
  });
