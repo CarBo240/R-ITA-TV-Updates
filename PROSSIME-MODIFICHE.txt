@@ -1,7 +1,7 @@
-Modifiche concordate implementate nella 1.47:
-- RaiPlay: catalogo unico e ricerca su tutti i contenuti, senza divisione Film/Serie/Programmi.
-- Rimozione da Continua a guardare RaiPlay, anche dalla home VOD.
-- Login RaiPlay: focus Email -> Password -> Accedi, tastiera Avanti e Fine.
-- CB01: navigazione delle sezioni e modulo di ricerca come nell’app VOD test; mantiene scelta Film / Serie TV.
-Account RaiPlay resta locale, senza Firebase. Avanzamento e rimozioni restano nella sincronizzazione esistente.
-Verificare sul dispositivo la ricerca reale delle serie CB01 e la navigazione del login.
+Stato modifiche R. ITA TV 1.48 — 10 ottobre 2026
+- RaiPlay: catalogo on demand unico; Dirette caricate a richiesta, ricerca separata per sezione.
+- Continua a guardare RaiPlay con ripresa e rimozione; dirette escluse dalla cronologia.
+- Login persistente manuale locale, senza Firebase; correzione focus Email/Password mantenuta.
+- CB01: ricerca dinamica VOD test collegata anche ad Altre fonti per le serie e a Guarda; scelta Film / Serie TV mantenuta.
+- Gecko rimosso da RITA, app separata per Eventi / Daddy.
+Da verificare sul dispositivo: CB01 da un titolo serie TMDB con Altre fonti; riproduzione dei canali Rai.

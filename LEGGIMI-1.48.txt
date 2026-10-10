@@ -1,0 +1,25 @@
+R. ITA TV 1.48 — CB01 Altre fonti e RaiPlay on demand / dirette
+
+Sostituisci tutti i file e le cartelle dello ZIP nella radice del repository GitHub, inclusa .github.
+Patch cumulativa per sorgenti 1.45, 1.46 o 1.47. Compilazione APK dal workflow con gli stessi Secrets RITA e alias player.
+
+RaiPlay:
+- On demand: catalogo unico di film, serie e programmi; esclude i canali live anche dalla ricerca.
+- Dirette: carica i canali solo quando richiesto. Cerca filtra esclusivamente i canali in questa sezione.
+- Le dirette aprono il player interno sul punto live; non vengono inserite in Continua a guardare.
+- Continua a guardare, rimozione con pressione lunga e login persistente locale conservati.
+
+CB01:
+- Anche Altre fonti e Guarda da un titolo TMDB usano la navigazione dinamica del catalogo VOD test.
+- La ricerca segue la sezione Serie TV e il suo modulo reale; prova anche il titolo originale quando disponibile.
+- Confronta il titolo esatto senza badge TV/HD/anno/stagione, distingue film e serie e verifica l’anno dei film.
+- La selezione apre il dialogo nativo di episodi/fonti senza cambiare pagina del catalogo.
+- Eliminato il blocco che chiedeva di selezionare prima il titolo nel catalogo CB01.
+
+Verifiche:
+- Compilazione completa dei sorgenti Java contro Android 36 e dipendenze reali Media3 1.10.1/Firebase/OkHttp riuscita.
+- 14 controlli corrispondenza CB01 e separazione Rai; 14 controlli WebMovieLinks; fixture JavaScript CB01 e Rai superate.
+- Pagina ufficiale RaiPlay Dirette: raccolti 14 canali con nomi e loghi corretti.
+- Non eseguita una prova di riproduzione su tablet né una ricerca CB01 dal dispositivo: verificare una serie da TMDB > Altre fonti > CB01 e le dirette Rai dopo la compilazione GitHub.
+
+Gecko resta separato. Account RaiPlay locale, senza sincronizzazione credenziali Firebase. Firma di produzione invariata.
