@@ -1,0 +1,5 @@
+Modifiche ancora da implementare:
+- RaiPlay: filtri Film / Serie TV / Programmi TV e ricerca limitata alla categoria.
+- Login RaiPlay: focus Email -> Password -> Accedi e tasto Avanti.
+- CB01 serie: trasferire la logica funzionante dell’app VOD test.
+- Account RaiPlay locale, senza Firebase; sincronizzazione avanzamento resta attiva.

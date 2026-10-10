@@ -5,12 +5,10 @@
  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
  <uses-feature android:name="android.software.leanback" android:required="false"/>
  <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+ <queries><package android:name="it.carmine.ritagecko"/></queries>
  <application android:label="R. ITA TV" android:theme="@style/AppTheme" android:icon="@drawable/icon" android:banner="@drawable/banner" android:usesCleartextTraffic="true" android:allowBackup="false" android:supportsRtl="true">
   <activity android:name="it.carmine.streamplayer.GomstreamActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.GomstreamPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
-  <activity android:name="it.carmine.streamplayer.DaddyLiveActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
-  <activity android:name="it.carmine.streamplayer.EventsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
-  <activity android:name="it.carmine.streamplayer.GeckoEventActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.CloudActivity" android:exported="false"/>
   <activity android:name="it.carmine.streamplayer.BackupActivity" android:exported="false"/>
   <activity android:name="it.carmine.streamplayer.TvSearchActivity" android:exported="false"/>

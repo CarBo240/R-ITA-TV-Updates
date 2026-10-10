@@ -1,0 +1,16 @@
+R. ITA TV 1.46 — separazione Gecko
+
+Sostituisci nella radice del repository GitHub tutte le cartelle e i file dello ZIP, inclusa .github.
+La compilazione usa gli stessi Secrets RITA e alias player della versione precedente.
+Il workflow esegue scripts/remove-gecko.sh: elimina sorgenti, asset e test delle sezioni trasferite.
+Se compili localmente, esegui prima: bash scripts/remove-gecko.sh
+Gradle esclude inoltre i file obsoleti e non dipende più da GeckoView.
+
+Eventi e Daddy Live sono nell’app separata R. ITA Gecko.
+La ricerca TV cerca soltanto i canali della fonte selezionata.
+Gomstream mantiene il player interno. Il pulsante facoltativo Apri con Gecko apre l’app separata se installata.
+VOD, RaiPlay e CB01 usano WebView/Media3 e non dipendono da Gecko.
+DaddyLiveSource e DaddyLiveSettings restano utilità per il catalogo e il player nativo Gomstream: non contengono Gecko.
+
+Verifica: compilazione Java completa senza jar Mozilla; 30 controlli Java superati.
+Le prove di riproduzione sul tablet devono essere eseguite dall’utente.

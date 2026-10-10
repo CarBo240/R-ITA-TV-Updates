@@ -5,9 +5,9 @@ android {
     compileSdk 36
     buildToolsVersion "35.0.0"
     buildFeatures { buildConfig true }
-    defaultConfig { applicationId 'it.carmine.streamplayer'; minSdk 26; targetSdk 35; versionCode 53; versionName '1.45'; ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' } }
+    defaultConfig { applicationId 'it.carmine.streamplayer'; minSdk 26; targetSdk 35; versionCode 54; versionName '1.46'; ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' } }
     splits { abi { enable true; reset(); include "armeabi-v7a", "arm64-v8a"; universalApk true } }
-    sourceSets { test { java.srcDirs = ['tests'] }; main { manifest.srcFile 'AndroidManifest.xml'; java.srcDirs = ['src']; res.srcDirs = ['res']; assets.srcDirs = ['assets'] } }
+    sourceSets { test { java.srcDirs = ['tests']; java.exclude '**/EventSourceTest.java', '**/GeckoNavigationTest.java', '**/EventsActivityTest.java', '**/EventSettingsTest.java', '**/GeckoRemoteInputTest.java', '**/DaddyLiveTest.java', '**/DaddyLiveSettingsTest.java' }; main { manifest.srcFile 'AndroidManifest.xml'; java.srcDirs = ['src']; java.exclude '**/GeckoEventActivity.java', '**/GeckoDns.java', '**/EventsActivity.java', '**/DaddyLiveActivity.java', '**/EventSource.java', '**/EventSettings.java', '**/SportIcons.java', '**/EventFilterSpinner.java', '**/WebAdPolicy.java'; assets.exclude 'adblock/**', 'team_logos.json'; res.srcDirs = ['res']; assets.srcDirs = ['assets'] } }
     testOptions { unitTests.includeAndroidResources = true; unitTests.all { maxHeapSize = "2g"; jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED", "--add-opens=java.base/java.net=ALL-UNNAMED"; systemProperty "robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2" } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     packaging { jniLibs { useLegacyPackaging true } }
@@ -29,7 +29,6 @@ dependencies {
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
     implementation "androidx.media3:media3-datasource-okhttp:1.10.1"
-    implementation "org.mozilla.geckoview:geckoview:152.0.20260713164047"
     implementation "androidx.media3:media3-exoplayer:1.10.1"
     implementation "androidx.media3:media3-exoplayer-hls:1.10.1"
     implementation "androidx.media3:media3-exoplayer-dash:1.10.1"
