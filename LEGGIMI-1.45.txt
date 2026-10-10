@@ -1,0 +1,26 @@
+R. ITA TV 1.45 — file da sostituire sulla 1.44
+
+Copia il contenuto dello ZIP nella radice del repository GitHub, mantenendo i percorsi e aggiungendo tutti i nuovi file. Non cancellare le altre cartelle. La compilazione usa i Secrets e la firma R. ITA già configurati, alias player. Non usare la chiave dell’app di prova.
+
+RaiPlay:
+- Piattaforma dedicata accessibile da Esplora per piattaforma, anche con un catalogo diverso da TMDB.
+- Interfaccia nativa con palette R. ITA, locandine, ricerca Film/Serie, stagioni ed episodi.
+- Account in schermata dedicata, raggiungibile anche dalle Impostazioni VOD. Sessione cifrata tramite Android Keystore e ripristinata al riavvio. La password non viene salvata. Un nuovo accesso è necessario quando la sessione scade o il servizio la revoca.
+- Portata l’intera logica RaiPlay della test 0.17 confermata funzionante: login, catalogo, JSON del titolo, stagioni, episodi, relinker, URL/headers licenza, parametro Nagra Authorization spostato nell’header nv-authorizations, Widevine MediaDrm e risposta licenza binaria/JSON.
+- Riproduzione nel player Media3 di R. ITA. Il flusso viene richiesto nuovamente a ogni apertura per non riutilizzare URL scaduti.
+- Continua a guardare nella piattaforma RaiPlay e nella home VOD, con barra di avanzamento e minutaggio. Il progresso è distinto per film/episodio; la ripresa usa la pagina dell’episodio salvato. Salvataggio periodico, su pausa e uscita.
+- Progresso sincronizzato tramite l’account Firebase già autorizzato in R. ITA; sessione RaiPlay locale al dispositivo. Le regole Firestore già presenti accettano le chiavi hash degli episodi: non richiedono modifiche.
+
+Altre modifiche concordate:
+- Filtro Film e serie TV / Film / Serie TV accanto a ricerca, anno e generi. Applicato anche alla ricerca CB01.
+- Catalogo CB01: parser e invio del modulo di ricerca riportati dall’app test, con scansione degli ingressi alle serie.
+- Locandina CB01: lista fonti nella schermata corrente, usando la pagina esatta e senza nuova ricerca per titolo. Navigazione dei collegamenti agli episodi individuati nella pagina.
+- Indicazione HD soltanto quando dichiarata nel collegamento della fonte.
+- Pressione lunga sulla fonte: copia del link.
+- Cambio fonte dopo il player: mantenuto il minutaggio e, per CB01, l’episodio corrente.
+
+Verifica:
+- Risorse Android compilate con aapt2; tutti i sorgenti Java compilati contro Android 36 e Media3 1.10.1.
+- 30 controlli JVM passati: link web (14), autorizzazione Nagra (4), risposte DRM (5), ripresa RaiPlay (5), collegamenti episodi/HD CB01 (2).
+- Non eseguito un test su tablet/TV di questa integrazione. RaiPlay era confermato funzionante dall’utente nella test 0.17: login, ripresa dopo riavvio, catalogo e navigazione vanno ora provati in R. ITA.
+- La compilazione APK firmata va eseguita su GitHub con la chiave esistente. Questo pacchetto non include un APK firmato con una chiave diversa.
