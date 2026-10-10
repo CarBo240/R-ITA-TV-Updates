@@ -1,0 +1,12 @@
+R. ITA TV 2.0
+
+Questa release applica il nuovo stile Premium al VOD e il focus Cinema luminoso al player Media3.
+Le icone TIM Box/Android TV e Fire TV sono già incluse.
+
+CB01 serie TV segue obbligatoriamente il percorso:
+Titolo esatto > Stagione > Episodio > Fonti video.
+I player generici presenti nella pagina principale della serie non vengono proposti.
+
+Salta intro e Salta il riassunto compaiono soltanto in presenza di marcatori espliciti della fonte. Se non sono disponibili, il pulsante resta nascosto.
+
+Caricare tutte le cartelle dello ZIP nella radice del repository GitHub e avviare il workflow.
