@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private ArtworkStore artwork;
     private ImageView guideImage;
     private LinearLayout navigation;
-    private Button navDirect,navCategories,navFavorites,navGuide,navEpg,navEvents,navDaddy,navVod;
+    private Button navDirect,navCategories,navFavorites,navGuide,navEpg,navVod;
     private boolean resumePlayback;
 
     private VavooClient.Channel currentChannel,requestedChannel;
@@ -116,9 +116,9 @@ public class MainActivity extends Activity {
             if(navigation!=null&&content!=null&&(wideMode==null||wideMode!=wide)){wideMode=wide;
                 navigation.setOrientation(HORIZONTAL);navigation.setLayoutParams(lp(-1,dp(wide?50:44)));
                 content.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1));
-                Button[] buttons={navDirect,navCategories,navEvents,navDaddy,navFavorites,navGuide,navVod,reload};
-                String[] large={"Canali ▾","Categorie ▾","Eventi","Daddy Live","Preferiti","Guida TV","VOD","↻"},small={"TV","▦","●","Daddy","★","Guida","VOD","↻"};
-                for(int i=0;i<buttons.length;i++){LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(i==7?dp(wide?48:36):0,-1,i==7?0:1);params.setMarginEnd(dp(4));buttons[i].setLayoutParams(params);buttons[i].setText(wide?large[i]:small[i]);buttons[i].setContentDescription(i==7?"Aggiorna":large[i]);buttons[i].setTextSize(wide?14:11);buttons[i].setSingleLine(true);}
+                Button[] buttons={navDirect,navCategories,navFavorites,navGuide,navVod,reload};
+                String[] large={"Canali ▾","Categorie ▾","Preferiti","Guida TV","VOD","↻"},small={"TV","▦","★","Guida","VOD","↻"};
+                for(int i=0;i<buttons.length;i++){LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(i==buttons.length-1?dp(wide?48:36):0,-1,i==buttons.length-1?0:1);params.setMarginEnd(dp(4));buttons[i].setLayoutParams(params);buttons[i].setText(wide?large[i]:small[i]);buttons[i].setContentDescription(i==buttons.length-1?"Aggiorna":large[i]);buttons[i].setTextSize(wide?14:11);buttons[i].setSingleLine(true);}
             }
             super.onMeasure(width,height);
         }
@@ -196,12 +196,10 @@ public class MainActivity extends Activity {
         navCategories=homeButton("▦ Categorie");navigation.addView(navCategories,lp(-1,dp(48)));
         navFavorites=homeButton("★ Preferiti");navigation.addView(navFavorites,lp(-1,dp(48)));
         navGuide=homeButton("≡ Guida TV");navigation.addView(navGuide,lp(-1,dp(48)));
-        navEvents=homeButton("● Eventi");navEvents.setTag("navEvents");navigation.addView(navEvents,lp(-1,dp(48)));navEvents.setOnClickListener(v->startActivity(new Intent(this,EventsActivity.class)));navEvents.setOnLongClickListener(v->{EventSettings.edit(this);return true;});
-        navDaddy=homeButton("Daddy Live");navDaddy.setTag("navDaddyLive");navigation.addView(navDaddy,lp(-1,dp(48)));navDaddy.setOnClickListener(v->startActivity(new Intent(this,DaddyLiveActivity.class)));navDaddy.setOnLongClickListener(v->{DaddyLiveSettings.edit(this,null);return true;});
         navVod=homeButton("VOD");navVod.setTag("navVod");navVod.setOnClickListener(v->startActivity(new Intent(this,VodActivity.class)));navVod.setOnLongClickListener(v->{VodSession.videoMenu(this,()->{});return true;});
         reload=homeButton("↻ Aggiorna");navigation.addView(reload,lp(-1,dp(48)));
         navEpg=homeButton("⚙ EPG");navEpg.setOnClickListener(v->epgSettings());navGuide.setOnLongClickListener(v->{epgSettings();return true;});
-        navigation.removeAllViews();for(Button item:new Button[]{navDirect,navCategories,navEvents,navDaddy,navFavorites,navGuide,navVod,reload}){navigation.addView(item);UiTheme.navigation(item);}
+        navigation.removeAllViews();for(Button item:new Button[]{navDirect,navCategories,navFavorites,navGuide,navVod,reload}){navigation.addView(item);UiTheme.navigation(item);}
         navDirect.setOnClickListener(v->chooseChannelSource());
         navDirect.setOnLongClickListener(v->{editChannelUrls();return true;});
         navCategories.setOnClickListener(v->{categories.requestFocus();categories.performClick();});navFavorites.setOnClickListener(v->favs.performClick());navGuide.setOnClickListener(v->showSchedule(guideChannel));
