@@ -1,0 +1,12 @@
+R. ITA TV 2.1.1 — FILE DA SOSTITUIRE SU GITHUB
+
+1. Apri il repository GitHub di R. ITA TV.
+2. Carica il contenuto dello ZIP nella radice del repository mantenendo esattamente le cartelle.
+3. Quando GitHub chiede come gestire i file esistenti, conferma la sostituzione.
+4. Verifica che siano presenti anche i nuovi file Java, banner.png e icon.png.
+5. Esegui il workflow “Compila APK R. ITA TV”.
+6. Scarica l’artifact “R-ITA-TV-v2.1.1-APK”.
+
+Firma prevista dai Secrets GitHub già configurati, alias: player.
+
+7. Pubblica una nuova Release GitHub con tag v2.1.1: il controllo aggiornamenti confronta il tag con la versione installata.

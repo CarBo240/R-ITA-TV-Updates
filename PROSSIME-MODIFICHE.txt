@@ -1,4 +1,4 @@
-Stato modifiche R. ITA TV 2.1 — 10 ottobre 2026
+Stato modifiche R. ITA TV 2.1.1 — 10 ottobre 2026
 - RaiPlay: catalogo on demand unico; Dirette caricate a richiesta, ricerca separata per sezione.
 - Continua a guardare RaiPlay con ripresa e rimozione; dirette escluse dalla cronologia.
 - Login persistente manuale locale, senza Firebase; correzione focus Email/Password mantenuta.
@@ -6,7 +6,7 @@ Stato modifiche R. ITA TV 2.1 — 10 ottobre 2026
 - Gecko rimosso da RITA, app separata per Eventi / Daddy.
 Da verificare sul dispositivo: riproduzione dei canali Rai e navigazione completa CB01 su una serie reale.
 
-Implementato nella 2.1:
+Implementato nella 2.1.1:
 - Serie TV > Altre fonti > CB01 deve mostrare: stagioni > episodi > flussi dell'episodio.
 - Non estrarre flussi dalla pagina generale della serie, perché può restituire player casuali, trailer o pubblicità.
 - Conservare grafica nativa R. ITA e punto di ripresa nel cambio fonte.
@@ -21,19 +21,19 @@ Home VOD:
 - Eliminare la riga Catalogo / Fonte video / disponibilità italiana.
 - Piattaforme: sostituire i piccoli loghi quadrati TMDB con nomi/wordmark panoramici grandi e centrati su sfondi coordinati; scritta sempre disponibile come fallback.
 - Implementato con immagini dedicate per tutte le nove piattaforme; logo centrato, scheda riempita e focus bianco sempre sopra l'immagine.
-- Rifinitura 2.1: carosello alto 282 dp e immagine nuovamente piena con CENTER_CROP.
+- Rifinitura 2.1.1: carosello alto 282 dp e immagine nuovamente piena con CENTER_CROP.
 
 Menu laterale:
 - Scelta definitiva: stile Premium sottile del mockup, con gli stessi disegni vettoriali.
 - R. e VOD bianchi; ITA nel colore del tema scelto.
 - Icona attiva e linea laterale nel colore del tema, sfumatura discreta sul focus.
-- Rifinitura 2.1: icone ridisegnate con tratti arrotondati, dimensioni maggiori e simboli specifici per ogni voce.
+- Rifinitura 2.1.1: icone ridisegnate con tratti arrotondati, dimensioni maggiori e simboli specifici per ogni voce.
 
 Release e icone:
-- La prossima release completa deve essere R. ITA TV 2.1 (versionCode 58).
+- La prossima release completa deve essere R. ITA TV 2.1.1 (versionCode 59).
 - Inserire direttamente nello ZIP completo da sostituire su GitHub le nuove risorse:
   res/drawable/banner.png per TIM Box/Android TV e res/drawable/icon.png per Fire TV/Fire Stick.
-- Non consegnare le icone come aggiornamento separato quando viene preparato lo ZIP della 2.1.
+- Non consegnare le icone come aggiornamento separato quando viene preparato lo ZIP della 2.1.1.
 
 Player Media3:
 - Scelta definitiva: proposta Cinema luminoso (seconda variante del mockup).
@@ -42,4 +42,4 @@ Player Media3:
 - Barra di avanzamento sottile in basso, con tratto visto e indicatore ambrati.
 - Applicare lo stesso focus chiaramente visibile a play/pausa, indietro, avanti, precedente, successivo, sottotitoli e impostazioni.
 - Conservare navigazione e funzioni attuali del telecomando; la modifica è grafica e non deve alterare la riproduzione.
-- Rifinitura 2.1: pallino della barra a 20 dp, fino a 28 dp durante lo spostamento; barra ingrandita quando ha il focus.
+- Rifinitura 2.1.1: pallino della barra a 20 dp, fino a 28 dp durante lo spostamento; barra ingrandita quando ha il focus.
