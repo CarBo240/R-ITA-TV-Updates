@@ -1,0 +1,19 @@
+R. ITA TV 1.47 — RaiPlay e ricerca serie CB01
+
+Carica tutti i file e tutte le cartelle dello ZIP nella radice del repository, inclusa .github.
+Applicabile ai sorgenti 1.45 e 1.46: include la separazione Gecko della 1.46.
+La firma usa gli stessi Secrets GitHub RITA e alias player.
+
+Modifiche:
+- RaiPlay: unica scheda Catalogo per tutti i contenuti; ricerca globale, senza filtri Film/Serie/Programmi.
+- Continua a guardare RaiPlay: tieni premuta la locandina (OK sul telecomando), conferma Rimuovi. Nel catalogo RaiPlay funziona anche MENU.
+- La rimozione comprende gli episodi del titolo e passa dalla sincronizzazione esistente; preferiti e altri titoli restano conservati.
+- La stessa rimozione è disponibile nel carosello Continua a guardare RaiPlay della home VOD.
+- Login RaiPlay: navigazione Email -> Password -> Accedi; tastiera Avanti sulla email e Fine sulla password.
+- CB01: navigazione delle sezioni e uso del modulo di ricerca trasferiti dall’app VOD Universal Test. Non riscrive il collegamento della sezione serie; WebView di catalogo mantiene il viewport completo, dietro la grafica nativa.
+- Scelta Film / Serie TV nella ricerca principale conservata.
+- Gecko resta nell’app separata; R. ITA non include il motore.
+- Account RaiPlay rimane locale, senza sincronizzazione delle credenziali Firebase.
+
+Verifiche locali: compilazione Java completa senza Mozilla; 39 controlli Java e fixture JavaScript CB01 superati.
+APK con firma di produzione compilato dal workflow GitHub. La ricerca reale CB01 e i comandi del login devono essere verificati sul dispositivo.
