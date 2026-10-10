@@ -1,0 +1,5 @@
+package it.carmine.streamplayer;
+import java.util.*;
+public final class RaiHistoryRemoveCheck {
+ public static void main(String[] args){Map<String,Object> records=new LinkedHashMap<>();records.put("history:raiplay:42:episode-a","{}");records.put("history:raiplay:42:episode-b","{}");records.put("history:raiplay:42:episode-c","{}");records.put("history:raiplay:420:episode-a","{}");records.put("history:tmdb:42:episode-a","{}");records.put("fav:raiplay:42","{}");records.put("watch:raiplay:42","{}");Set<String> deleted=VodLibrary.historyKeys("raiplay","42",records);if(deleted.size()!=3)throw new AssertionError("Every episode must be removed");for(String key:deleted)records.remove(key);if(records.size()!=4||!records.containsKey("history:raiplay:420:episode-a")||!records.containsKey("history:tmdb:42:episode-a")||!records.containsKey("fav:raiplay:42")||!records.containsKey("watch:raiplay:42"))throw new AssertionError("Unrelated content changed");if(!VodLibrary.historyKeys("raiplay","42",records).isEmpty())throw new AssertionError("Deletion must be idempotent");System.out.println("3 RaiPlay history removal fixtures passed");}
+}

@@ -1,0 +1,5 @@
+package it.carmine.streamplayer;
+import java.util.*;
+public final class CbNavigationCheck {
+ public static void main(String[] args){String series="https://series.example/serie-tv/?section=all";ArrayDeque<String> pages=new ArrayDeque<>();Set<String> visited=new HashSet<>();CbCatalogNavigation.enqueue(pages,visited,"https://movies.example/",2);CbCatalogNavigation.enqueue(pages,visited,series,2);if(!series.equals(pages.poll()))throw new AssertionError("The series route and its parameters must be preserved and prioritized");visited.add(series);CbCatalogNavigation.enqueue(pages,visited,series,2);if(pages.contains(series))throw new AssertionError("Repeated section");if(!CbCatalogNavigation.seriesPage(series)||CbCatalogNavigation.seriesPage("https://movies.example/?s=serie-tv"))throw new AssertionError("Search text must not classify the whole page as series");for(String bad:new String[]{"javascript:alert(1)","http://series.example/","https://user:pass@series.example/"})if(CbCatalogNavigation.allowed(bad))throw new AssertionError("Invalid route accepted");System.out.println("6 CB01 navigation fixture checks passed");}
+}
