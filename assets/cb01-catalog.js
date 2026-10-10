@@ -11,7 +11,7 @@
   var image=im?(im.getAttribute('data-src')||im.getAttribute('data-lazy-src')||im.currentSrc||im.src):'';
   try{image=image?new URL(image,location.href).href:''}catch(e){image=''}
   if(seen[u]!==undefined){if(image&&!out[seen[u]].image)out[seen[u]].image=image;return}
-  seen[u]=out.length;out.push({title:t,url:u,image:image});
+  seen[u]=out.length;out.push({title:t,url:u,image:image,type:/serie[ -]?tv|stagion|season|episod/i.test(t+' '+u+' '+card.className)?'tv':'movie'});
  });
  return JSON.stringify(out.slice(0,80));
 })
