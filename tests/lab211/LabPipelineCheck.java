@@ -252,6 +252,20 @@ public final class LabPipelineCheck {
   tokenFailure("VIDXGO_REFRESH_TOKEN_MISSING",()->tokenState.update("https://cdn.example/hls/31049299/master.m3u8?e="+(now+90000),now));
   tokenFailure("VIDXGO_QUERY_DUPLICATE",()->tokenState.update("https://cdn.example/hls/31049299/master.m3u8?t=x&t=y&e="+(now+90000),now));
   check(tokenState.rewrite("https://cdn.example/hls/31049299/seg.ts").contains("t=new%2Ftoken"),"failed renewal retains prior state without accepting invalid token");
+  LabPipeline.CatalogAdapter euro=LabPipeline.adapter("eurostreaming");
+  String euroRoot="https://eurostreaming.design/",euroArchive="https://eurostreaming.design/archive?type=movie",euroFilm="https://eurostreaming.design/detail/film-299534-avengers-endgame";
+  pages.put(euroArchive,page(euroArchive,"<div class='post-thumb'><a href='/detail/film-299534-avengers-endgame' title='Avengers: Endgame'><img src='https://images.example/poster.jpg' alt='Avengers: Endgame'></a></div><div class='post-thumb'><a href='/detail/tv-123-series'><img src='https://images.example/series.jpg' alt='Series'></a></div>"));
+  List<LabPipeline.Title> euroTitles=pipeline.catalog(euro,euroRoot,"");check(euroTitles.size()==1&&euroTitles.get(0).url.equals(euroFilm),"Euro dedicated movie route, posters and exact film detail filtering");
+  check(euro.search(euroRoot,"a & b").equals("https://eurostreaming.design/search?type=movie&q=a+%26+b"),"Euro search preserves movie type and URL encoding");
+  pages.put(euroFilm,page(euroFilm,"<iframe src='https://vixsrc.to/movie/299534?lang=it'></iframe><iframe src='https://www.youtube.com/embed/trailer'></iframe>"));
+  LabPipeline.SourceReport euroReport=pipeline.sourceReport(euro,euroTitles.get(0));check(euroReport.sources.size()==1&&euroReport.trailers.size()==1&&euroReport.sources.get(0).url.equals("https://vixsrc.to/api/movie/299534?lang=it"),"Euro verified page/embed identity dispatches exact TMDB Vix bridge and separates trailer");
+  pages.put(euroFilm,page(euroFilm,"<iframe src='https://vixsrc.to/movie/123?lang=it'></iframe>"));failure("EURO_VIX_ID_CONFLICT",()->pipeline.sourceReport(euro,euroTitles.get(0)));
+  pages.put(euroFilm,page(euroFilm,"<iframe src='https://www.youtube.com/embed/trailer'></iframe>"));failure("EURO_VIX_EMBED_MISSING",()->pipeline.sourceReport(euro,euroTitles.get(0)));
+  failure("K9VO_SIGNED_API_REQUIRED",()->pipeline.catalog(euro,"https://l5hs.k9vo.com/",""));
+  LabPipeline.MaxStream maxNew=new LabPipeline.MaxStream();
+  String maxManifest="https://ms-ssd-011.host-cdn.net/hls/,one/two,.urlset/master.m3u8?token=a%2Fb&expires=999";
+  check(maxNew.parse(page("https://maxstream.video/example","<script>const playlist='"+maxManifest+"';</script>"),"").url.equals(maxManifest),"MaxStream public HLS without script id preserves path commas and complete query");
+  failure("MAXSTREAM_HLS_AMBIGUOUS",()->maxNew.parse(page("https://maxstream.video/example","<script>const a='"+maxManifest+"';const b='https://cdn.example/other.m3u8';</script>"),""));
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }

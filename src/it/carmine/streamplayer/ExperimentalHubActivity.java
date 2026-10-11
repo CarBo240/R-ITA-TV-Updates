@@ -42,7 +42,7 @@ public final class ExperimentalHubActivity extends Activity {
   Button inspect=button("Analizza pagina / host · MixDrop, MaxStream, AltaDefinizione");add(content,inspect);inspect.setOnClickListener(v->askInspect(null));
   TextView providerTitle=text("PROVIDER DISPONIBILI",19);providerTitle.setPadding(0,dp(15),0,dp(8));add(content,providerTitle);
   entries=new LinearLayout(this);entries.setOrientation(1);add(content,entries);
-  Button addLab=button("Aggiungi / configura provider LAB 2.1.18");add(content,addLab);addLab.setOnClickListener(v->configureLab());
+  Button addLab=button("Aggiungi / configura provider LAB 2.1.19");add(content,addLab);addLab.setOnClickListener(v->configureLab());
   loadLocal();
  }
  private void loadLocal(){
@@ -82,12 +82,12 @@ public final class ExperimentalHubActivity extends Activity {
    else new AlertDialog.Builder(this).setTitle(s.name).setMessage("Tipo: "+s.type+"\nURL: "+s.url+"\nI resolver del laboratorio non modificano il catalogo principale. I provider web senza API di catalogo supportata vengono esplorati nel browser TEST.").setPositiveButton("OK",null).show();
   }).setNegativeButton("Annulla",null).show();
  }
- private static final String[] LAB_KINDS={"cb01","altadefinizione","wordpress","dle","json"};
- private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1"};
+ private static final String[] LAB_KINDS={"cb01","altadefinizione","wordpress","dle","json","eurostreaming"};
+ private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1","EuroStreaming · film / VixSrc"};
  private void chooseLabAdapter(String name,String url){new AlertDialog.Builder(this).setTitle("Adattatore catalogo · "+name).setItems(LAB_LABELS,(d,n)->openLab(name,url,LAB_KINDS[n])).setNegativeButton("Annulla",null).show();}
  private void openLab(String name,String url,String adapter){startActivity(new Intent(this,LabMultiCatalogActivity.class).putExtra("lab_url",url).putExtra("lab_name",name).putExtra("lab_adapter",adapter));}
  private void appendLabProviders(){
-  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB 2.1.18 · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
+  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB 2.1.19 · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
   catch(Exception e){message("Configurazioni LAB non leggibili");}
  }
  private void removeLab(String url){try{JSONArray old=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]")),next=new JSONArray();for(int i=0;i<old.length();i++)if(!url.equals(old.getJSONObject(i).optString("url")))next.put(old.getJSONObject(i));getSharedPreferences("lab211",0).edit().putString("providers",next.toString()).apply();loadLocal();}catch(Exception e){message("Eliminazione configurazione fallita");}}

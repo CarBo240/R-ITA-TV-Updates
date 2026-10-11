@@ -84,7 +84,9 @@ public final class LabPipeline {
   return page;
  }
  public List<Title> catalog(CatalogAdapter adapter,String base,String query)throws Exception {
+  if(host(base).equals("k9vo.com")||host(base).endsWith(".k9vo.com"))throw new Failure(Stage.CATALOG,"K9VO_SIGNED_API_REQUIRED","K9vo/PPCine: catalogo, identità client e flussi richiedono API e firme specifiche; integrazione non disponibile senza credenziali proprie autorizzate dal servizio");
   emit(Stage.CATALOG,"ADAPTER",adapter.name());String route=query.isEmpty()?base:adapter.search(base,query);
+  if(adapter instanceof EuroCatalog&&query.isEmpty()&&(https(base).getPath().isEmpty()||https(base).getPath().equals("/")))route=origin(base)+"/archive?type=movie";
   if(adapter instanceof AltaCatalog&&query.isEmpty()&&(https(base).getPath().isEmpty()||https(base).getPath().equals("/")))route=origin(base)+"/film";
   Page page;try{page=fetch(route,base,false,Stage.CATALOG);}catch(Failure e){if(!(adapter instanceof AltaCatalog)||!e.code.equals("HTTP_404")||route.equals(base))throw e;emit(Stage.CATALOG,"LAYOUT_ROUTE_FALLBACK","Percorso aggiornato assente (404); percorso precedente");page=fetch(query.isEmpty()?base:origin(base)+"/archivio?search="+java.net.URLEncoder.encode(query,"UTF-8"),base,false,Stage.CATALOG);}
   List<Title> titles=adapter.titles(page);
@@ -282,6 +284,10 @@ public final class LabPipeline {
   public Media parse(Page page,String referer)throws Exception {
    Matcher hls=Pattern.compile("(?is)<script\\b([^>]*)>(.*?)</script\\s*>").matcher(page.text());
    while(hls.find())if("m3u8".equals(attrs(hls.group(1)).get("id"))){Matcher url=Pattern.compile("https://[^\\s\"'<>#]+\\.m3u8(?:\\?[^\\s\"'<>#]*)?",Pattern.CASE_INSENSITIVE).matcher(hls.group(2));if(url.find())return new Media(https(decode(url.group())).toString(),HLS,page.url,name(),tracks(page));}
+   Matcher publicHls=Pattern.compile("https://[^\\s\"'<>#]+\\.m3u8(?:\\?[^\\s\"'<>#]*)?",Pattern.CASE_INSENSITIVE).matcher(page.text());
+   LinkedHashSet<String> candidates=new LinkedHashSet<>();while(publicHls.find())candidates.add(https(decode(publicHls.group())).toString());
+   if(candidates.size()==1)return new Media(candidates.iterator().next(),HLS,page.url,name(),tracks(page));
+   if(candidates.size()>1)throw new Failure(Stage.RESOLVER,"MAXSTREAM_HLS_AMBIGUOUS","MaxStream: più manifest pubblici fuori dal blocco player; impossibile scegliere con certezza");
    Matcher scripts=Pattern.compile("(?is)<script\\b([^>]*)>\\s*(https://[^<\\s]{1,8192})\\s*</script\\s*>").matcher(page.text());
    while(scripts.find())if("cccc".equals(attrs(scripts.group(1)).get("id"))){String url=absolute(page.url,scripts.group(2));if(!url.isEmpty())return new Media(url,mime(url),page.url,name(),tracks(page));}
    return super.parse(page,referer);
@@ -345,14 +351,28 @@ public final class LabPipeline {
  private static String baseCode(int value,int radix){String digits="0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";if(value==0)return "0";StringBuilder out=new StringBuilder();while(value>0){out.append(digits.charAt(value%radix));value/=radix;}return out.reverse().toString();}
  private static String literal(String s){return s.replace("\\'","'").replace("\\\"","\"").replace("\\/","/").replace("\\\\","\\");}
  public static CatalogAdapter adapter(String kind)throws Failure {
-  switch(kind){case "cb01":return new Cb01Catalog();case "altadefinizione":return new AltaCatalog();case "wordpress":return new WordpressCatalog();case "dle":return new DleCatalog();default:throw new Failure(Stage.CATALOG,"UNSUPPORTED_CATALOG","Selezionare un adattatore LAB: CB01, AltaDefinizione, WordPress o DLE");}
+  switch(kind){case "eurostreaming":return new EuroCatalog();case "cb01":return new Cb01Catalog();case "altadefinizione":return new AltaCatalog();case "wordpress":return new WordpressCatalog();case "dle":return new DleCatalog();default:throw new Failure(Stage.CATALOG,"UNSUPPORTED_CATALOG","Selezionare un adattatore LAB: CB01, AltaDefinizione, WordPress o DLE");}
  }
  private abstract static class HtmlCatalog implements CatalogAdapter {
   abstract Pattern blocks();
   public List<Title> titles(Page page){LinkedHashMap<String,Title> out=new LinkedHashMap<>();Matcher blocks=blocks().matcher(page.text());while(blocks.find()&&out.size()<100){String body=blocks.group();Matcher anchors=Pattern.compile("(?is)<a\\b[^>]*>").matcher(body);Matcher img=Pattern.compile("(?is)<img\\b[^>]*>").matcher(body);if(!img.find())continue;Map<String,String> a=attrs(img.group());String poster=absolute(page.url,a.getOrDefault("data-src",a.getOrDefault("data-original",a.getOrDefault("src",""))));String title=a.getOrDefault("alt",a.getOrDefault("title",""));String url="";while(anchors.find()){Map<String,String> link=attrs(anchors.group());String candidate=absolute(page.url,link.getOrDefault("href",""));if(!candidate.isEmpty()&&host(candidate).equals(host(page.url))&&!candidate.equals(page.url)&&!URI.create(candidate).getPath().matches(".*/(?:category|tag|author)/.*")){url=candidate;if(title.isEmpty())title=link.getOrDefault("title","");break;}}
    if(title.isEmpty()){Matcher h=Pattern.compile("(?is)<h[1-4]\\b[^>]*>(.*?)</h[1-4]>").matcher(body);if(h.find())title=h.group(1).replaceAll("<[^>]*>"," ").trim();}
    if(!url.isEmpty()&&!poster.isEmpty()&&title.length()>1)out.putIfAbsent(url,new Title(decode(title),poster,url));}return new ArrayList<>(out.values());}
-  public List<Source> sources(Page page){return declaredSources(page);}
+  public List<Source> sources(Page page)throws Exception{return declaredSources(page);}
+ }
+ public static final class EuroCatalog extends HtmlCatalog {
+  public String name(){return "EuroStreaming · film e VixSrc";}
+  Pattern blocks(){return Pattern.compile("(?is)<(?:div|article)\\b[^>]*class=[\"'][^\"']*\\bpost-thumb\\b[^\"']*[\"'][^>]*>.*?(?=<(?:div|article)\\b[^>]*class=[\"'][^\"']*\\bpost-thumb\\b|$)");}
+  public String search(String b,String q)throws Exception{return origin(b)+"/search?type=movie&q="+java.net.URLEncoder.encode(q,"UTF-8");}
+  public List<Title> titles(Page page){List<Title> out=new ArrayList<>();for(Title t:super.titles(page))if(URI.create(t.url).getPath().matches("/detail/film-[1-9][0-9]{0,9}-[^/]+"))out.add(t);return out;}
+  public List<Source> sources(Page page)throws Exception {
+   List<Source> all=declaredSources(page);Matcher id=Pattern.compile("^/detail/film-([1-9][0-9]{0,9})-[^/]+/?$").matcher(https(page.url).getPath());
+   if(!id.matches())throw new Failure(Stage.HOST_SEARCH,"EURO_FILM_ID_MISSING","Scheda EuroStreaming senza identificativo film TMDB; serie ed episodi non ancora integrati");
+   String expected=id.group(1);boolean embed=false;List<Source> out=new ArrayList<>();
+   for(Source source:all){URI u=https(source.url);if("vixsrc.to".equalsIgnoreCase(u.getHost())){if(u.getPath().equals("/movie/"+expected)||u.getPath().equals("/api/movie/"+expected))embed=true;else throw new Failure(Stage.HOST_SEARCH,"EURO_VIX_ID_CONFLICT","L'identificativo dell'embed VixSrc non coincide con la scheda del titolo");}else out.add(source);}
+   if(!embed)throw new Failure(Stage.HOST_SEARCH,"EURO_VIX_EMBED_MISSING","Nessun embed pubblico VixSrc associato al film; nessuna fonte inventata");
+   out.add(0,new Source("https://vixsrc.to/api/movie/"+expected+"?lang=it","Diretto · VixSrc · resolver R. ITA",page.url));return out;
+  }
  }
  public static final class Cb01Catalog extends HtmlCatalog {public String name(){return "CB01 · articoli";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>|<(?:div|section)\\b[^>]*class=[\"'][^\"']*\\bcard(?:-body)?\\b[^\"']*[\"'][^>]*>.*?(?=<(?:div|section)\\b[^>]*class=[\"'][^\"']*\\bcard\\b|$)");}public String search(String b,String q)throws Exception{return origin(b)+"/?s="+java.net.URLEncoder.encode(q,"UTF-8");}}
  public static final class AltaCatalog extends HtmlCatalog {
