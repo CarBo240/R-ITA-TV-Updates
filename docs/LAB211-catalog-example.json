@@ -1,0 +1,10 @@
+{
+  "labSchema": 1,
+  "titles": [
+    {
+      "name": "Titolo del proprio catalogo",
+      "poster": "https://cdn.example/poster.jpg",
+      "detail": "https://catalog.example/detail.json"
+    }
+  ]
+}

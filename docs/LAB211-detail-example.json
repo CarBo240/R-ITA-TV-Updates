@@ -1,0 +1,7 @@
+{
+  "sources": [
+    {"label": "HLS autorizzato", "url": "https://cdn.example/master.m3u8"},
+    {"label": "MP4 autorizzato", "url": "https://cdn.example/video.mp4"},
+    {"label": "MixDrop del proprio titolo", "url": "https://mixdrop.example/e/id"}
+  ]
+}
