@@ -42,6 +42,7 @@ public final class ExperimentalHubActivity extends Activity {
   Button inspect=button("Analizza pagina / host · MixDrop, MaxStream, AltaDefinizione");add(content,inspect);inspect.setOnClickListener(v->askInspect(null));
   TextView providerTitle=text("PROVIDER DISPONIBILI",19);providerTitle.setPadding(0,dp(15),0,dp(8));add(content,providerTitle);
   entries=new LinearLayout(this);entries.setOrientation(1);add(content,entries);
+  Button addLab=button("Aggiungi / configura provider LAB 2.1.11");add(content,addLab);addLab.setOnClickListener(v->configureLab());
   loadLocal();
  }
  private void loadLocal(){
@@ -63,6 +64,7 @@ public final class ExperimentalHubActivity extends Activity {
  }
  private void display(List<VodSettings.Source> all,String label){
   List<VodSettings.Source> snapshot=new ArrayList<>(all);sources.clear();sources.addAll(snapshot);clearRows();message(label+" · "+sources.size()+" provider");
+  appendLabProviders();
   for(VodSettings.Source s:sources){
    Button b=button(s.name+"  ·  "+s.type+"\n"+s.url);
    b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(dp(12),dp(8),dp(12),dp(8));
@@ -73,12 +75,24 @@ public final class ExperimentalHubActivity extends Activity {
  private void options(VodSettings.Source s){
   String[] options={"Catalogo con locandine → Fonti → Player", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Ricerca testuale precedente", "Informazioni provider"};
   new AlertDialog.Builder(this).setTitle("TEST · "+s.name).setItems(options,(d,n)->{
-   if(n==0)startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));
+   if(n==0){if("streamingcommunity".equals(s.type)||s.vixsrc())startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else chooseLabAdapter(s.name,s.url);}
    else if(n==1)askInspect(s.url);
    else if(n==2)browser(s.url,s.name);
    else if(n==3)search(s);
    else new AlertDialog.Builder(this).setTitle(s.name).setMessage("Tipo: "+s.type+"\nURL: "+s.url+"\nI resolver del laboratorio non modificano il catalogo principale. I provider web senza API di catalogo supportata vengono esplorati nel browser TEST.").setPositiveButton("OK",null).show();
   }).setNegativeButton("Annulla",null).show();
+ }
+ private static final String[] LAB_KINDS={"cb01","altadefinizione","wordpress","dle","json"};
+ private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1"};
+ private void chooseLabAdapter(String name,String url){new AlertDialog.Builder(this).setTitle("Adattatore catalogo · "+name).setItems(LAB_LABELS,(d,n)->openLab(name,url,LAB_KINDS[n])).setNegativeButton("Annulla",null).show();}
+ private void openLab(String name,String url,String adapter){startActivity(new Intent(this,LabMultiCatalogActivity.class).putExtra("lab_url",url).putExtra("lab_name",name).putExtra("lab_adapter",adapter));}
+ private void appendLabProviders(){
+  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB 2.1.11 · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
+  catch(Exception e){message("Configurazioni LAB non leggibili");}
+ }
+ private void removeLab(String url){try{JSONArray old=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]")),next=new JSONArray();for(int i=0;i<old.length();i++)if(!url.equals(old.getJSONObject(i).optString("url")))next.put(old.getJSONObject(i));getSharedPreferences("lab211",0).edit().putString("providers",next.toString()).apply();loadLocal();}catch(Exception e){message("Eliminazione configurazione fallita");}}
+ private void configureLab(){LinearLayout box=new LinearLayout(this);box.setOrientation(1);EditText name=new EditText(this),url=new EditText(this);name.setHint("Nome provider LAB");url.setHint("URL HTTPS catalogo autorizzato");url.setSingleLine(true);url.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);box.addView(name);box.addView(url);Spinner kind=new Spinner(this);kind.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,LAB_LABELS));box.addView(kind);
+  AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Provider separato dal VOD").setView(box).setPositiveButton("Salva e apri",null).setNegativeButton("Annulla",null).create();dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(w->{try{String title=name.getText().toString().trim(),address=url.getText().toString().trim();if(title.isEmpty()||title.length()>80)throw new Exception("Nome non valido");it.carmine.streamplayer.lab211.LabPipeline.https(address);String adapter=LAB_KINDS[kind.getSelectedItemPosition()];JSONArray old=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]")),next=new JSONArray();for(int i=0;i<old.length();i++)if(!address.equals(old.getJSONObject(i).optString("url")))next.put(old.getJSONObject(i));if(next.length()>=40)throw new Exception("Massimo 40 provider LAB");next.put(new JSONObject().put("name",title).put("url",address).put("adapter",adapter));getSharedPreferences("lab211",0).edit().putString("providers",next.toString()).apply();dialog.dismiss();loadLocal();openLab(title,address,adapter);}catch(Exception e){url.setError(e.getMessage());}}));dialog.show();
  }
  private void browser(String url,String name){
   // Existing browser activity is used only for navigation; playback routes of the main app remain unchanged.
