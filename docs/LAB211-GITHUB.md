@@ -2,11 +2,11 @@
 
 ## ZIP
 
-Lo ZIP dei soli file modificati contiene nuovi file e sostituzioni rispetto alla 2.1.19. Estrarre nella root del repository mantenendo le directory. Lo ZIP completo conserva anche tutte le copie root già presenti nell'archivio originale; Gradle compila `src`, come prima. Non usare l'APK Veezie come dipendenza.
+Lo ZIP dei soli file modificati contiene nuovi file e sostituzioni rispetto alla 2.1.20. Estrarre nella root del repository mantenendo le directory. Lo ZIP completo conserva anche tutte le copie root già presenti nell'archivio originale; Gradle compila `src`, come prima. Non usare l'APK Veezie come dipendenza.
 
 ## Android Studio / GitHub
 
-`local.properties` non contiene più il percorso SDK assoluto di una vecchia sessione; Android Studio lo configura localmente e GitHub usa ANDROID_HOME. Il workflow build-apk conserva firma e varianti originali, aggiunge i 190 controlli LAB prima della build e usa il nome artifact 2.1.19 LAB.
+`local.properties` non contiene più il percorso SDK assoluto di una vecchia sessione; Android Studio lo configura localmente e GitHub usa ANDROID_HOME. Il workflow build-apk conserva firma e varianti originali, aggiunge i 207 controlli LAB prima della build e usa il nome artifact 2.1.20 LAB.
 
 Aprire il progetto con JDK 17, Android SDK 36 e Build Tools 35.0.0. Conservare le dipendenze e le esclusioni originali. È necessaria la connettività verso Google Maven e Maven Central.
 
@@ -17,7 +17,7 @@ gradle assembleRelease
 
 Il progetto allegato non contiene Gradle wrapper né chiave di firma. `assembleRelease` mantiene il tipo release non firmato della base. Firmare con la **stessa chiave usata per la propria app** prima di installare come aggiornamento; non sostituire la firma con una chiave nuova. I parametri debug originali richiedono `RITA_KEYSTORE_FILE`, `RITA_KEYSTORE_PASSWORD`, `RITA_KEY_ALIAS`, `RITA_KEY_PASSWORD` se si vuole produrre un APK debug firmato. Nessuna credenziale è inclusa.
 
-La versione è 2.1.19, codice 76, package originale `it.carmine.streamplayer`. Nessuna pubblicazione GitHub o installazione è stata effettuata qui.
+La versione è 2.1.20, codice 76, package originale `it.carmine.streamplayer`. Nessuna pubblicazione GitHub o installazione è stata effettuata qui.
 
 ## Test indipendente dal SDK
 
@@ -39,7 +39,10 @@ Sul dispositivo verificare l'intera sequenza: locandine → scheda → fonti →
 
 Limitazioni: prima pagina/catalogo fino a 100 titoli, nessuna paginazione automatica; serie senza un adattatore episodio dedicato elencano i link dichiarati nella scheda; nessun login nel nuovo client; cookie/challenge, wrapper dinamici, DRM o API riservate non sono risolti. Gli intermediari generici possono essere attraversati soltanto quando espongono un collegamento pubblico HTTPS univoco o un redirect ordinario. Streaming Community e VixSrc continuano nelle attività precedenti.
 
-La 2.1.19 aggiunge il catalogo AltaDefinizione `/film` e la ricerca `/search?q=`, il layout `movie/data-link`, la fonte candidata VixSrc da identità IMDb, il resolver VidXGo con rinnovo pubblico del token e la preferenza HLS MaxStream. La fonte VixSrc passa per il resolver e il player LAB originali, senza riscriverli. Consultare CHANGELOG-2.1.19-LAB.md e docs/LAB218-VERIFICA.md per limiti e prove richieste. Uprot → MaxStream e VidXGo sul dispositivo non sono ancora certificati. MixDrop resta sul percorso precedente; soltanto VidXGo attiva il nuovo gestore di sessione.
+La 2.1.20 aggiunge il catalogo AltaDefinizione `/film` e la ricerca `/search?q=`, il layout `movie/data-link`, la fonte candidata VixSrc da identità IMDb, il resolver VidXGo con rinnovo pubblico del token e la preferenza HLS MaxStream. La fonte VixSrc passa per il resolver e il player LAB originali, senza riscriverli. Consultare CHANGELOG-2.1.20-LAB.md e docs/LAB218-VERIFICA.md per limiti e prove richieste. Uprot → MaxStream e VidXGo sul dispositivo non sono ancora certificati. MixDrop resta sul percorso precedente; soltanto VidXGo attiva il nuovo gestore di sessione.
 
-## 2.1.19
+## 2.1.20
 EuroStreaming.design dispone di adattatore film dedicato. MaxStream è ancora da verificare sul dispositivo; k9vo richiede API/firme autorizzate. Consultare `LAB219-VERIFICA.md`.
+
+## 2.1.20 · modifiche R. ITA autorizzate
+Il menu locandine, lo stile del player VOD e Altre fonti sono aggiornati. Quattro file di produzione hanno eccezioni documentate in LAB220-AUTHORIZED-PRODUCTION-CHANGES.json; tutti gli altri file originali restano protetti. Consultare LAB220-VERIFICA.md.

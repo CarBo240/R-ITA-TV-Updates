@@ -1,0 +1,22 @@
+{
+  "src/it/carmine/streamplayer/PlayerChrome.java": {
+    "original_sha256": "e60b8985bb5b2fd46b5c25c25719b76197476b20424ccae00c3c9efb6cc09a2e",
+    "sha256": "92a520ce20af0f3a5777e41d110852315baab47884e71d804e620d64e10ef6b5",
+    "reason": "Focus VOD bianco/ambra, scrubber ridotto e seek più visibile; altri player conservati"
+  },
+  "src/it/carmine/streamplayer/VodActivity.java": {
+    "original_sha256": "cef79a64d7240a4d7fc6fd45d0a7dbbd54d4d013bb04a909680d37d9c4f497e0",
+    "sha256": "2c6be22ed6ddd41ffb7cae8a6e3a7924e56605343b5ab9a6094623f9e8c37f6e",
+    "reason": "Pressione lunga locandine home apre menu"
+  },
+  "src/it/carmine/streamplayer/VodCatalogueActivity.java": {
+    "original_sha256": "b115feb90750fda1f91c0ac8119621eabd545e5252c578762503e2e51c0df50d",
+    "sha256": "96a365f7eb21cb286e99b9665f94c78d0d57d380e9efcf993797f5696085db68",
+    "reason": "Menu locandine e Altre fonti con fonti LAB confermate"
+  },
+  "src/it/carmine/streamplayer/VodPlayerActivity.java": {
+    "original_sha256": "393633daafed119aead12ce53f97286859777c3a61834cfbb06435c19a529c72",
+    "sha256": "879c952005cb9f291f5f8533676dca9d447f0aabb5527e0129e57ecef39ba812",
+    "reason": "Riproduzione fonti LAB nel player R. ITA e stile VOD"
+  }
+}

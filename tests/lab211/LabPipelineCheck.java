@@ -266,6 +266,23 @@ public final class LabPipelineCheck {
   String maxManifest="https://ms-ssd-011.host-cdn.net/hls/,one/two,.urlset/master.m3u8?token=a%2Fb&expires=999";
   check(maxNew.parse(page("https://maxstream.video/example","<script>const playlist='"+maxManifest+"';</script>"),"").url.equals(maxManifest),"MaxStream public HLS without script id preserves path commas and complete query");
   failure("MAXSTREAM_HLS_AMBIGUOUS",()->maxNew.parse(page("https://maxstream.video/example","<script>const a='"+maxManifest+"';const b='https://cdn.example/other.m3u8';</script>"),""));
+  check(LabVodPolicy.adapterKind("https://cb01uno.wiki").equals("cb01"),"RITA bridge selects CB01 adapter");
+  check(LabVodPolicy.adapterKind("https://altadefinizionex.surf").equals("altadefinizione"),"RITA bridge selects confirmed Alta adapter");
+  check(LabVodPolicy.adapterKind("https://eurostreamings.yachts").isEmpty(),"Unverified Euro catalog not silently integrated into RITA");
+  check(LabVodPolicy.adapterKind("https://cb01uno.wiki.evil.example").isEmpty(),"Nested lookalike does not select production catalog bridge");
+  check(LabVodPolicy.titleMatches("Animals","","2026",new LabPipeline.Title("Animals [HD] (2026)","", "https://cb01uno.wiki/animals-hd-2026/")),"RITA matching strips quality and exact year");
+  check(!LabVodPolicy.titleMatches("Animals","","2026",new LabPipeline.Title("Animals [HD] (2024)","", "https://cb01uno.wiki/animals-hd-2024/")),"RITA bridge rejects film remake with conflicting year");
+  check(!LabVodPolicy.titleMatches("Animals","","2026",new LabPipeline.Title("Animals 2 [HD] (2026)","", "https://cb01uno.wiki/animals-2/")),"RITA bridge rejects merely similar names");
+  check(!LabVodPolicy.titleMatches("Animals","","2026",new LabPipeline.Title("Animals","", "https://altadefinizionex.surf/serie-tv/animals/")),"RITA film bridge rejects series pages");
+  check(LabVodPolicy.playable(new LabPipeline.Source("https://mxdrop.top/f/pjkrwgqdaljdo0","MixDrop","https://cb01uno.wiki/")),"RITA allows confirmed MixDrop resolver");
+  check(LabVodPolicy.playable(new LabPipeline.Source("https://stayonline.pro/l/XNnym/","Mixdrop","https://cb01uno.wiki/")),"RITA preserves functioning MixDrop public intermediary");
+  check(!LabVodPolicy.playable(new LabPipeline.Source("https://stayonline.pro/l/XNnym/","Maxstream","https://cb01uno.wiki/")),"RITA rejects unsupported intermediary target");
+  check(!LabVodPolicy.playable(new LabPipeline.Source("https://uprot.net/msf/9r5lmsrtcmi7","Maxstream","https://cb01uno.wiki/")),"Unresolved Uprot does not become enabled in production");
+  check(!LabVodPolicy.playable(new LabPipeline.Source("https://maxsun623.site/example","Maxstream","https://cb01uno.wiki/")),"MaxStream remains disabled pending actual supported flow");
+  check(LabVodPolicy.playable(new LabPipeline.Source("https://v.vidxgo.co/31049299","VidXGo","https://altadefinizionex.surf/")),"RITA enables confirmed VidXGo resolution");
+  check(LabVodPolicy.playable(new LabPipeline.Source("https://vixsrc.to/api/movie/tt1234567?lang=it","Diretto","https://altadefinizionex.surf/")),"RITA routes exact Vix candidate to existing bridge");
+  check(!LabVodPolicy.playable(new LabPipeline.Source("https://www.youtube.com/embed/x","Trailer","https://cb01uno.wiki/")),"Trailer cannot launch production movie player");
+  check(!LabVodPolicy.playable(new LabPipeline.Source("http://media.example/master.m3u8","Diretto","https://cb01uno.wiki/")),"Production direct media forbids HTTP");
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }
