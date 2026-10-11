@@ -168,6 +168,18 @@ public final class LabPipelineCheck {
   pages.put(refreshWrapper,new LabPipeline.Page(refreshWrapper,403,"text/html",new byte[0],"0; URL=https://mxdrop.top/f/test123456"));failure("HTTP_403",()->pipeline.resolve(new LabPipeline.Source(refreshWrapper,"MixDrop",base)));
   pages.put(sun,page(sun,"<script id='cccc'>"+aliasedMedia+"</script>"));check(pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)).url.equals(aliasedMedia),"MaxStream public cccc declaration preserves exact URL and verifies bytes");
   pages.put(sun,page(sun,"<script id='cccc'>https://media.example/not-video.mp4</script>"));pages.put("https://media.example/not-video.mp4",page("https://media.example/not-video.mp4","<html>Error</html>"));failure("NOT_MEDIA",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
+  String realStayShape="https://stayonline.pro/l/XNnym/",m1="https://m1xdrop.net/f/test123456";
+  expectedStayReferer[0]=realStayShape;pages.put(realStayShape,page(realStayShape,"<script>var linkId = \"XNnym\";</script>"));
+  apiResponses.put(api,page(api,"{\"data\":{\"value\":\""+m1+"\"}}"));
+  pages.put(m1,page("https://mxdrop.top/f/test123456","<iframe src='/e/test123456'></iframe>"));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).url.equals(aliasedMedia),"five-character StayOnline ID -> m1xdrop -> redirect mxdrop -> embed -> verified MP4");
+  check(posted.get(posted.size()-1).get("id").equals("XNnym"),"provided StayOnline ID reaches public POST unchanged");
+  check(pipeline.resolver(m1).name().equals("MixDrop")&&LabPipeline.classify(m1,"MixDrop")==LabPipeline.SourceKind.HOST,"m1 alias uses actual MixDrop resolver and host classification");
+  check(pipeline.resolver("https://www.m1xdrop.net/e/test123456").name().equals("MixDrop"),"www alias dispatch");
+  check(!LabPipeline.knownHost("m1xdrop.net.evil.example")&&!LabPipeline.knownHost("evil-m1xdrop.net"),"exact m1 alias rejects forged domains");
+  pages.put(m1,page(m1,"MDCore.wurl='"+aliasedMedia+"';"));check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).host.equals("MixDrop"),"m1 page without redirect extracts actual declaration and verifies media");
+  pages.put(m1,page(m1,"No media"));failure("NO_PUBLIC_MEDIA",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
+  pages.put(m1,new LabPipeline.Page(m1,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }

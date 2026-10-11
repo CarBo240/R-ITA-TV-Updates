@@ -235,7 +235,7 @@ public final class LabPipeline {
  }
  public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · ricerca destinazione pubblica";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
  public static boolean knownHost(String h){if(mixAlias(h)||maxAlias(h))return true;for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
- private static boolean mixAlias(String h){return h.equalsIgnoreCase("mxdrop.top")||h.equalsIgnoreCase("www.mxdrop.top");}
+ private static boolean mixAlias(String h){return h.equalsIgnoreCase("mxdrop.top")||h.equalsIgnoreCase("www.mxdrop.top")||h.equalsIgnoreCase("m1xdrop.net")||h.equalsIgnoreCase("www.m1xdrop.net");}
  private static boolean maxAlias(String h){return h.equalsIgnoreCase("maxsun623.site")||h.equalsIgnoreCase("www.maxsun623.site");}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
  private abstract static class PublicResolver implements HostResolver {
