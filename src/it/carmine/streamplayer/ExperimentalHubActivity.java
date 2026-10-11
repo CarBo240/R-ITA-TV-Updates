@@ -39,6 +39,7 @@ public final class ExperimentalHubActivity extends Activity {
   Button remote=button("Leggi lista remota");tools.addView(remote,new LinearLayout.LayoutParams(0,-2,1));remote.setOnClickListener(v->loadRemote());
   query=new EditText(this);query.setSingleLine(true);query.setHint("Cerca titolo nei cataloghi supportati");query.setTextColor(Color.WHITE);query.setHintTextColor(0xffa0aab5);query.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);add(content,query);
   Button direct=button("Prova URL video diretto · HLS / DASH / MP4");add(content,direct);direct.setOnClickListener(v->enterDirect());
+  Button inspect=button("Analizza pagina / host · MixDrop, MaxStream, AltaDefinizione");add(content,inspect);inspect.setOnClickListener(v->askInspect(null));
   TextView providerTitle=text("PROVIDER DISPONIBILI",19);providerTitle.setPadding(0,dp(15),0,dp(8));add(content,providerTitle);
   entries=new LinearLayout(this);entries.setOrientation(1);add(content,entries);
   loadLocal();
@@ -70,10 +71,11 @@ public final class ExperimentalHubActivity extends Activity {
   }
  }
  private void options(VodSettings.Source s){
-  String[] options={"Apri catalogo nel browser TEST","Cerca titolo nel catalogo TEST","Apri home del provider", "Informazioni provider"};
+  String[] options={"Analizza collegamenti pagina","Apri catalogo nel browser TEST","Cerca titolo nel catalogo TEST","Apri home del provider", "Informazioni provider"};
   new AlertDialog.Builder(this).setTitle("TEST · "+s.name).setItems(options,(d,n)->{
-   if(n==0||n==2)browser(s.url,s.name);
-   else if(n==1)search(s);
+   if(n==0)askInspect(s.url);
+   else if(n==1||n==3)browser(s.url,s.name);
+   else if(n==2)search(s);
    else new AlertDialog.Builder(this).setTitle(s.name).setMessage("Tipo: "+s.type+"\nURL: "+s.url+"\nI resolver del laboratorio non modificano il catalogo principale. I provider web senza API di catalogo supportata vengono esplorati nel browser TEST.").setPositiveButton("OK",null).show();
   }).setNegativeButton("Annulla",null).show();
  }
@@ -106,6 +108,35 @@ public final class ExperimentalHubActivity extends Activity {
    }).show());
   }
   Button back=button("Ritorna ai provider");add(entries,back);back.setOnClickListener(v->display(sources,"Fonti di prova"));
+ }
+ private void askInspect(String initial){
+  EditText input=new EditText(this);input.setSingleLine(true);input.setHint("https://sito.example/pagina");input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);input.setTextColor(Color.WHITE);
+  if(initial!=null)input.setText(initial);
+  new AlertDialog.Builder(this).setTitle("LAB · Analizza pagina / host").setMessage("Legge i collegamenti dichiarati nell'HTML pubblico: nessun eseguibile remoto, codice offuscato o controllo di accesso viene aggirato.")
+   .setView(input).setPositiveButton("Analizza",(d,n)->inspectUrl(input.getText().toString().trim())).setNegativeButton("Annulla",null).show();
+ }
+ private void inspectUrl(String url){
+  try{URI uri=new URI(url);if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getPort()!=-1)throw new Exception();}
+  catch(Exception e){Toast.makeText(this,"Inserisci un indirizzo HTTPS valido",Toast.LENGTH_LONG).show();return;}
+  message("LAB · Analisi pagina in corso…");
+  worker.execute(()->{try{
+    ExperimentalHostInspector.Result result=ExperimentalHostInspector.inspect(url);
+    runOnUiThread(()->{if(!closed)showInspection(result);});
+   }catch(Exception e){runOnUiThread(()->{if(!closed)message("Analisi fallita: "+ExperimentalHostInspector.safeError(e));});}});
+ }
+ private void showInspection(ExperimentalHostInspector.Result result){
+  clearRows();message("LAB · "+result.label+" · HTTP "+result.status+" · "+result.links.size()+" collegamenti riconosciuti");
+  add(entries,text("Pagina: "+result.displayHost+"\n"+result.message,14));
+  Button back=button("← Ritorna all'elenco provider");add(entries,back);back.setOnClickListener(v->display(new ArrayList<>(sources),"Fonti di prova"));
+  for(ExperimentalHostInspector.Link link:result.links){
+   Button row=button(link.kind+" · "+link.displayHost+"\n"+link.hint);add(entries,row);
+   row.setOnClickListener(v->{
+    ArrayList<String> labels=new ArrayList<>();labels.add("Apri la pagina nel browser TEST");labels.add("Analizza questo collegamento");if(link.direct)labels.add("Prova nel player Media3");
+    new AlertDialog.Builder(this).setTitle(link.kind+" · "+link.displayHost).setItems(labels.toArray(new String[0]),(d,n)->{
+      if(n==0)browser(link.url,link.displayHost);else if(n==1)inspectUrl(link.url);else if(n==2&&link.direct)startActivity(new Intent(this,ExperimentalPlayerActivity.class).putExtra("stream_url",link.url));
+    }).setNegativeButton("Annulla",null).show();
+   });
+  }
  }
  private void enterDirect(){
   EditText input=new EditText(this);input.setSingleLine(true);input.setHint("https://…/stream.m3u8");input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
