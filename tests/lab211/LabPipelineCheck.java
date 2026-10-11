@@ -129,9 +129,10 @@ public final class LabPipelineCheck {
   pages.put(stay,page(stay,"<script>var linkId = 'test123456';</script><a href='https://uprot.net/x/0'>Other link</a><a href='https://uprot.net/x/1'>Other link</a>"));
   apiResponses.put(api,page(api,"{\"status\":\"success\",\"data\":{\"value\":\"https:\\/\\/mxdrop.top\\/f\\/test123456\"}}"));
   List<Map<String,String>> posted=new ArrayList<>();
+  String[] expectedStayReferer={stay};
   LabPipeline ajaxPipeline=new LabPipeline(new LabPipeline.Transport(){
    public LabPipeline.Page get(String url,String ref,boolean media){if(!pages.containsKey(url))throw new AssertionError(url);return pages.get(url);}
-   public LabPipeline.Page postForm(String url,Map<String,String> fields,String ref){check(url.equals(api)&&ref.equals(stay),"POST fixed same-origin endpoint and page referer");posted.add(new LinkedHashMap<>(fields));return apiResponses.get(url);}
+   public LabPipeline.Page postForm(String url,Map<String,String> fields,String ref){check(url.equals(api)&&ref.equals(expectedStayReferer[0]),"POST fixed same-origin endpoint and page referer");posted.add(new LinkedHashMap<>(fields));return apiResponses.get(url);}
   },(s,c,d)->stages.add(s+":"+c));
   check(ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)).url.equals(aliasedMedia),"catalog wrapper -> StayOnline POST -> mxdrop /f/ -> /e/ -> verified MP4");
   check(posted.get(0).size()==2&&posted.get(0).get("id").equals("test123456")&&posted.get(0).get("ref").isEmpty(),"public ID only; no private key or generated token");
@@ -146,6 +147,27 @@ public final class LabPipelineCheck {
   int postsBefore=posted.size();pages.put(stay,page(stay,"<div class='g-recaptcha'></div><script>linkId='test123456'</script>"));failure("ACCESS_CHALLENGE",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));check(posted.size()==postsBefore,"no API request past access challenge");
   pages.put(stay,new LabPipeline.Page(stay,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));check(posted.size()==postsBefore,"no API request after refused page");
   pages.put(sun,new LabPipeline.Page(sun,403,"text/html","Cloudflare Error 1005: The owner has banned the autonomous system number (ASN).".getBytes(StandardCharsets.UTF_8)));failure("ACCESS_ASN_BLOCK",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
+  apiResponses.put(api,page(api,"{\"data\":{\"value\":\"https://mxdrop.top/f/test123456\"}}"));
+  expectedStayReferer[0]="https://stayonline.pro/";
+  pages.put(stay,page(expectedStayReferer[0],"<p>Pagina dopo redirect, senza linkId</p>"));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)).url.equals(aliasedMedia),"selected StayOnline ID survives redirect to root and reaches verified media");
+  check(posted.get(posted.size()-1).get("id").equals("test123456"),"original opaque ID preserved in AJAX form");
+  check(stages.contains("RESOLVER:STAYONLINE_ID_SOURCE"),"ID origin diagnostic emitted");
+  String shortStay="https://stayonline.pro/l/7/extra?view=1";pages.put(shortStay,page(expectedStayReferer[0],"<p>Public page</p>"));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(shortStay,"MixDrop",base)).url.equals(aliasedMedia),"short opaque ID and trailing path supported through verified media");
+  check(posted.get(posted.size()-1).get("id").equals("7"),"no undocumented minimum ID length");
+  int beforeAmbiguous=posted.size();pages.put(shortStay,page(expectedStayReferer[0],"<script>linkId='other';</script>"));
+  failure("STAYONLINE_ID_AMBIGUOUS",()->ajaxPipeline.resolve(new LabPipeline.Source(shortStay,"MixDrop",base)));check(posted.size()==beforeAmbiguous,"conflicting ID stops before POST");
+  String bareStay="https://stayonline.pro/";pages.put(bareStay,page(bareStay,"<script>linkId='42';</script>"));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(bareStay,"MixDrop",base)).url.equals(aliasedMedia),"short declared linkId supported");
+  pages.put(bareStay,page(bareStay,"No ID"));failure("STAYONLINE_NO_ID",()->ajaxPipeline.resolve(new LabPipeline.Source(bareStay,"MixDrop",base)));
+  String refreshWrapper="https://uprot.net/refresh/test";
+  pages.put(refreshWrapper,new LabPipeline.Page(refreshWrapper,200,"text/html",new byte[0],"0; URL='https://mxdrop.top/f/test123456'"));
+  check(pipeline.resolve(new LabPipeline.Source(refreshWrapper,"MixDrop",base)).url.equals(aliasedMedia),"public HTTP Refresh -> host embed -> verified MP4");
+  pages.put(refreshWrapper,new LabPipeline.Page(refreshWrapper,200,"text/html",new byte[0],"0; URL=http://mxdrop.top/f/test123456"));failure("INTERMEDIARY_NO_PUBLIC_LINK",()->pipeline.resolve(new LabPipeline.Source(refreshWrapper,"MixDrop",base)));
+  pages.put(refreshWrapper,new LabPipeline.Page(refreshWrapper,403,"text/html",new byte[0],"0; URL=https://mxdrop.top/f/test123456"));failure("HTTP_403",()->pipeline.resolve(new LabPipeline.Source(refreshWrapper,"MixDrop",base)));
+  pages.put(sun,page(sun,"<script id='cccc'>"+aliasedMedia+"</script>"));check(pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)).url.equals(aliasedMedia),"MaxStream public cccc declaration preserves exact URL and verifies bytes");
+  pages.put(sun,page(sun,"<script id='cccc'>https://media.example/not-video.mp4</script>"));pages.put("https://media.example/not-video.mp4",page("https://media.example/not-video.mp4","<html>Error</html>"));failure("NOT_MEDIA",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }

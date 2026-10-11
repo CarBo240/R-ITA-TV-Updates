@@ -18,8 +18,9 @@ public final class LabPipeline {
   public Failure(Stage s,String c,String message){super(message);stage=s;code=c;}
  }
  public static final class Page {
-  public final String url,type;public final int status;public final byte[] bytes;
-  public Page(String u,int s,String t,byte[] b){url=u;status=s;type=t==null?"":t;bytes=b;}
+  public final String url,type,refresh;public final int status;public final byte[] bytes;
+  public Page(String u,int s,String t,byte[] b){this(u,s,t,b,"");}
+  public Page(String u,int s,String t,byte[] b,String r){url=u;status=s;type=t==null?"":t;bytes=b;refresh=r==null?"":r;}
   public String text(){return new String(bytes,StandardCharsets.UTF_8);}
  }
  public static final class Title {
@@ -116,10 +117,11 @@ public final class LabPipeline {
    else if(intermediary(host(page.url))){
     emit(Stage.HOST_SEARCH,"INTERMEDIARY",host(page.url)+" · ricerca collegamenti pubblici");
     if(host(page.url).equals("stayonline.pro")||host(page.url).equals("www.stayonline.pro")){
-     Source destination=stayOnline(page);emit(Stage.HOST_SEARCH,"PUBLIC_API_LINK",host(page.url)+" → "+host(destination.url));return resolvePublic(destination,visited,depth+1);
+     Source destination=stayOnline(page,source.url);emit(Stage.HOST_SEARCH,"PUBLIC_API_LINK",host(page.url)+" → "+host(destination.url));return resolvePublic(destination,visited,depth+1);
     }
     List<Source> candidates=new ArrayList<>();
     for(Source next:declaredSources(page))if(next.kind==SourceKind.HOST||next.kind==SourceKind.MEDIA||next.kind==SourceKind.INTERMEDIARY)candidates.add(next);
+    Source headerTarget=refreshTarget(page.url,page.refresh,source.label);if(headerTarget!=null)candidates.add(headerTarget);
     // Ordinary HTML refresh only. No remote code, hidden API, gate or token generation.
     Matcher metas=Pattern.compile("(?is)<meta\\b[^>]*>").matcher(page.text());
     while(metas.find()){Map<String,String> a=attrs(metas.group());if(!"refresh".equalsIgnoreCase(a.getOrDefault("http-equiv","")))continue;
@@ -142,10 +144,15 @@ public final class LabPipeline {
   }
   return result;
  }
- private Source stayOnline(Page page)throws Exception {
-  String id="";Matcher path=Pattern.compile("/(?:[a-z]?l)/([A-Za-z0-9_-]{6,128})/?$").matcher(https(page.url).getPath());if(path.find())id=path.group(1);
-  Matcher declared=Pattern.compile("\\blinkId\\s*=\\s*['\"]([A-Za-z0-9_-]{6,128})['\"]").matcher(page.text());if(declared.find())id=declared.group(1);
-  if(id.isEmpty())throw new Failure(Stage.RESOLVER,"STAYONLINE_NO_ID","StayOnline: ID pubblico del collegamento non trovato");
+ private Source stayOnline(Page page,String selected)throws Exception {
+  // Preserve the selected link before transport redirects, as in the observed
+  // Veezie flow. IDs are opaque public strings, not necessarily six characters.
+  LinkedHashSet<String> ids=new LinkedHashSet<>();String original=stayId(selected),current=stayId(page.url);
+  if(!original.isEmpty())ids.add(original);if(!current.isEmpty())ids.add(current);
+  Matcher declared=Pattern.compile("\\blinkId\\s*=\\s*['\"]([A-Za-z0-9_-]{1,128})['\"]").matcher(page.text());while(declared.find())ids.add(declared.group(1));
+  if(ids.isEmpty())throw new Failure(Stage.RESOLVER,"STAYONLINE_NO_ID","StayOnline: ID non trovato nel collegamento selezionato, nell'URL finale o in linkId; inviare il collegamento StayOnline completo");
+  if(ids.size()!=1)throw new Failure(Stage.RESOLVER,"STAYONLINE_ID_AMBIGUOUS","StayOnline: identificativi pubblici discordanti; nessuna destinazione selezionata");
+  String id=ids.iterator().next();emit(Stage.RESOLVER,"STAYONLINE_ID_SOURCE",!original.isEmpty()?"Collegamento originale · ID conservato prima dei redirect":!current.isEmpty()?"URL finale":"Dichiarazione linkId pubblica");
   Map<String,String> form=new LinkedHashMap<>();form.put("id",id);form.put("ref","");
   String endpoint=origin(page.url)+"/ajax/linkView.php";emit(Stage.RESOLVER,"STAYONLINE_PUBLIC_POST","StayOnline · richiesta destinazione senza credenziali");Page response;
   try{response=transport.postForm(endpoint,form,page.url);}catch(Failure e){throw e;}catch(Exception e){throw new Failure(Stage.RESOLVER,"NETWORK",e.getClass().getSimpleName());}
@@ -159,6 +166,15 @@ public final class LabPipeline {
   https(url);Source next=new Source(url,host(url),page.url);
   if(next.kind!=SourceKind.HOST&&next.kind!=SourceKind.MEDIA&&next.kind!=SourceKind.INTERMEDIARY)throw new Failure(Stage.RESOLVER,"STAYONLINE_UNSUPPORTED_TARGET","StayOnline: dominio destinazione senza adattatore compatibile: "+host(url));
   return next;
+ }
+ private static String stayId(String url)throws Exception {
+  String h=host(url);if(!h.equals("stayonline.pro")&&!h.equals("www.stayonline.pro"))return "";
+  Matcher path=Pattern.compile("/(?:[a-z]?l)/([A-Za-z0-9_-]{1,128})(?:/.*)?$").matcher(https(url).getPath());return path.find()?path.group(1):"";
+ }
+ private static Source refreshTarget(String base,String value,String label){
+  Matcher m=Pattern.compile("(?is)^\\s*[0-9]+(?:\\.[0-9]+)?\\s*;\\s*url\\s*=\\s*(['\"]?)(.*?)\\1\\s*$").matcher(value);
+  if(!m.matches())return null;String url=absolute(base,m.group(2));if(url.isEmpty())return null;
+  Source target=new Source(url,label,base);return target.kind==SourceKind.HOST||target.kind==SourceKind.MEDIA||target.kind==SourceKind.INTERMEDIARY?target:null;
  }
  private static String jsonString(String raw)throws Failure {
   StringBuilder out=new StringBuilder();try{for(int i=0;i<raw.length();i++){char c=raw.charAt(i);if(c!='\\'){if(c<32)throw new Exception();out.append(c);continue;}char escape=raw.charAt(++i);switch(escape){case '/':case '\\':case '"':out.append(escape);break;case 'b':out.append('\b');break;case 'f':out.append('\f');break;case 'n':out.append('\n');break;case 'r':out.append('\r');break;case 't':out.append('\t');break;case 'u':out.append((char)Integer.parseInt(raw.substring(i+1,i+5),16));i+=4;break;default:throw new Exception();}}return out.toString();}
@@ -240,7 +256,13 @@ public final class LabPipeline {
  private static String normalMime(String m){String x=m.toLowerCase(Locale.ROOT);return x.contains("mpegurl")?HLS:x.contains("dash+xml")?DASH:x.equals(MP4)?MP4:"";}
  private static String key(String k){return "[\"']?"+k+"[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+)[\"']";}
  public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}public boolean matches(URI u){return super.matches(u)||mixAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}}
- public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{key("file"),key("src")};}}
+ public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{key("file"),key("src")};}
+  public Media parse(Page page,String referer)throws Exception {
+   Matcher scripts=Pattern.compile("(?is)<script\\b([^>]*)>\\s*(https://[^<\\s]{1,8192})\\s*</script\\s*>").matcher(page.text());
+   while(scripts.find())if("cccc".equals(attrs(scripts.group(1)).get("id"))){String url=absolute(page.url,scripts.group(2));if(!url.isEmpty())return new Media(url,mime(url),page.url,name(),tracks(page));}
+   return super.parse(page,referer);
+  }
+ }
  public static final class Voe extends PublicResolver {public Voe(){super("voe","VOE");}String prepare(String h){
    Matcher m=Pattern.compile("[\"']?(hls|mp4)[\"']?\\s*:\\s*(?:atob\\(\\s*)?[\"']([A-Za-z0-9+/=]{20,})[\"']\\s*\\)?").matcher(h);StringBuffer out=new StringBuffer();while(m.find()){try{String decoded=new String(Base64.getDecoder().decode(m.group(2)),StandardCharsets.UTF_8);https(decoded);m.appendReplacement(out,Matcher.quoteReplacement(m.group(1)+":\""+decoded+"\""));}catch(Exception e){m.appendReplacement(out,Matcher.quoteReplacement(m.group()));}}m.appendTail(out);return out.toString();
   }String[] fields(){return new String[]{key("hls"),key("mp4")};}}

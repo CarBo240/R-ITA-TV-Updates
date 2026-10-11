@@ -20,7 +20,7 @@ public final class LabHttp implements LabPipeline.Transport {
     int status=response.code();if(status==301||status==302||status==303||status==307||status==308){String location=response.header("Location","");String next=LabPipeline.absolute(url,location);if(next.isEmpty()||location.isEmpty())throw new LabPipeline.Failure(LabPipeline.Stage.SOURCE,"UNSAFE_REDIRECT","Redirect non HTTPS o non valido");url=next;continue;}
     int limit=media?65536:2*1024*1024;ByteArrayOutputStream out=new ByteArrayOutputStream();
     if(response.body()!=null)try(InputStream input=response.body().byteStream()){byte[] buffer=new byte[8192];while(out.size()<limit){int n=input.read(buffer,0,Math.min(buffer.length,limit-out.size()));if(n<0)break;out.write(buffer,0,n);}}
-    return new LabPipeline.Page(url,status,response.header("Content-Type",""),out.toByteArray());
+    return new LabPipeline.Page(url,status,response.header("Content-Type",""),out.toByteArray(),response.header("Refresh",""));
    }
   }
   throw new LabPipeline.Failure(LabPipeline.Stage.SOURCE,"REDIRECT_LIMIT","Superato limite di quattro redirect HTTPS");
