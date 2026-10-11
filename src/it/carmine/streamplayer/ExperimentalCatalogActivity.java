@@ -102,7 +102,7 @@ public final class ExperimentalCatalogActivity extends Activity {
   TextView note=text("Le fonti vengono elencate separatamente dal catalogo. Solo i collegamenti video HTTPS supportati potranno aprirsi nel player LAB; i collegamenti a pagine host richiedono un adattatore compatibile.",14);add(pane,note);
   LinearLayout rows=new LinearLayout(this);rows.setOrientation(1);add(pane,rows);
   if(nativeVix()){renderVixSources(rows,item);return;}
-  job("Analisi delle fonti di «"+item.name+"»…",()->nativeSC()?ExperimentalHostInspector.inspect(item.url):ExperimentalMultiHostResolver.inspect(item.url),o->{ExperimentalHostInspector.Result result=(ExperimentalHostInspector.Result)o;hosts.clear();hosts.addAll(result.links);renderSources(rows,result);});
+  job("Analisi delle fonti di «"+item.name+"»…",()->nativeSC()?ExperimentalHostInspector.inspect(item.url):ExperimentalHostAdapters.inspect(item.url),o->{ExperimentalHostInspector.Result result=(ExperimentalHostInspector.Result)o;hosts.clear();hosts.addAll(result.links);renderSources(rows,result);});
  }
  private void renderVixSources(LinearLayout rows,Item item){
   rows.removeAllViews();
@@ -146,7 +146,8 @@ public final class ExperimentalCatalogActivity extends Activity {
   });
  }
  private void renderSources(LinearLayout rows,ExperimentalHostInspector.Result result){rows.removeAllViews();state("LAB · "+selected.name+" · "+result.links.size()+" collegamenti rilevati · HTTP "+result.status);
-  if(result.links.isEmpty())add(rows,text("Nessun host o flusso diretto trovato nell'HTML accessibile. Può essere necessario un resolver specifico.",16));
+  if(result.links.isEmpty())add(rows,text("Nessun host o flusso diretto trovato nelle pagine pubbliche accessibili. Nessun video può essere riprodotto senza una fonte disponibile.",16));
+  if(!nativeSC())add(rows,text(result.message,13));
   for(ExperimentalHostInspector.Link link:result.links){Button b=button(link.kind+" · "+link.displayHost+(link.direct?"\n▶ Prova player interno":"\nHost rilevato · non è un flusso diretto"));add(rows,b);b.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(link.kind).setItems(link.direct?new String[]{"Prova nel player Media3","Analizza host"}:new String[]{"Analizza host","Informazioni"},(d,index)->{
    if(link.direct&&index==0)play(link.url);
    else if(link.direct||index==0)inspectHost(link.url,rows);
@@ -154,7 +155,7 @@ public final class ExperimentalCatalogActivity extends Activity {
   }).show());}
   if(nativeSC()&&selected.id.matches("[0-9]+")){Button test=button("Prova resolver Streaming Community esistente");add(rows,test);test.setOnClickListener(v->resolveSC());}
  }
- private void inspectHost(String url,LinearLayout rows){job("Analisi host…",()->nativeSC()?ExperimentalHostInspector.inspect(url):ExperimentalMultiHostResolver.inspect(url),o->renderSources(rows,(ExperimentalHostInspector.Result)o));}
+ private void inspectHost(String url,LinearLayout rows){job("Analisi host…",()->nativeSC()?ExperimentalHostInspector.inspect(url):ExperimentalHostAdapters.inspect(url),o->renderSources(rows,(ExperimentalHostInspector.Result)o));}
  private void resolveSC(){Item t=selected;job("Verifica sorgente video per «"+t.name+"»…",()->VodSource.resolve(source.url,t.id,"",VodSource.HTTP),o->{VodSource.Stream stream=(VodSource.Stream)o;
   new AlertDialog.Builder(this).setTitle("Flusso HLS individuato").setMessage("Il resolver ha ottenuto un flusso. Vuoi tentare la riproduzione nel player LAB? Un server può comunque rifiutare l'accesso.").setPositiveButton("Player interno",(d,n)->play(stream.url)).setNegativeButton("Annulla",null).show();});}
  private void play(String url){play(url,"","");}
