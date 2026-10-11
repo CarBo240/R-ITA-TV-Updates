@@ -36,7 +36,18 @@ public final class ExperimentalPlayerActivity extends Activity {
      diagnostics.setText(message);
     }
    });
-   player.setMediaItem(MediaItem.fromUri(Uri.parse(video)));player.prepare();player.play();
+   java.util.HashMap<String,String> headers=new java.util.HashMap<>();
+   String referer=getIntent().getStringExtra("stream_referer"),origin=getIntent().getStringExtra("stream_origin");
+   if(referer!=null&&!referer.isEmpty())headers.put("Referer",referer);
+   if(origin!=null&&!origin.isEmpty())headers.put("Origin",origin);
+   androidx.media3.datasource.okhttp.OkHttpDataSource.Factory http=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(VodNetwork.client()).setUserAgent(VodSource.USER_AGENT).setDefaultRequestProperties(headers);
+   String lower=uri.getPath()==null?"":uri.getPath().toLowerCase(java.util.Locale.ROOT);
+   String mime=lower.endsWith(".mpd")?MimeTypes.APPLICATION_MPD:lower.endsWith(".mp4")?MimeTypes.VIDEO_MP4:MimeTypes.APPLICATION_M3U8;
+   MediaItem item=new MediaItem.Builder().setUri(Uri.parse(video)).setMimeType(mime).build();
+   if(mime.equals(MimeTypes.APPLICATION_MPD))player.setMediaSource(new androidx.media3.exoplayer.dash.DashMediaSource.Factory(http).createMediaSource(item));
+   else if(mime.equals(MimeTypes.VIDEO_MP4))player.setMediaSource(new androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(http).createMediaSource(item));
+   else player.setMediaSource(new androidx.media3.exoplayer.hls.HlsMediaSource.Factory(http).createMediaSource(item));
+   player.prepare();player.play();
   }catch(Exception e){diagnostics.setText("LAB · URL video non valido");}
  }
  @Override protected void onStop(){if(player!=null){player.release();player=null;}super.onStop();}

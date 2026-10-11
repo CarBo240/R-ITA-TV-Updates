@@ -29,6 +29,7 @@ public final class ExperimentalCatalogActivity extends Activity {
  private EditText search;
  private VodSettings.Source source;
  private Item selected;
+ private final HashMap<String,VodSource.Title> tmdbTitles=new HashMap<>();
  private volatile boolean closed;
  private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
  private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(Color.WHITE);return t;}
@@ -55,15 +56,34 @@ public final class ExperimentalCatalogActivity extends Activity {
   content=new FrameLayout(this);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));loadCatalog();
  }
  private boolean nativeSC(){return "streamingcommunity".equals(source.type);}
+ private boolean nativeVix(){return "vixsrc".equals(source.type)||"vixsrc".equals(source.id);}
  private void loadCatalog(){selected=null;
+  if(nativeVix()){loadTmdb("");return;}
   if(nativeSC())job("Caricamento locandine da "+source.name+"…",()->{
    String html=VodSource.fetch(source.url,source.url+"/");return fromSC(VodSource.catalog(VodSource.props(html),source.url));
   },o->showCatalog((List<Item>)o));
   else job("Lettura catalogo pubblico di "+source.name+"…",()->generic(source.url),o->showCatalog((List<Item>)o));
  }
  private void loadSearch(){String q=search.getText().toString().trim();if(q.isEmpty()){loadCatalog();return;}
+  if(nativeVix()){loadTmdb(q);return;}
   if(nativeSC())job("Ricerca «"+q+"»…",()->fromSC(VodSource.catalog(VodSource.page(source.url,"/it/search?q="+VodSource.encode(q),VodSource.HTTP),source.url)),o->showCatalog((List<Item>)o));
   else {ArrayList<Item> filtered=new ArrayList<>();for(Item i:items)if(i.name.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT)))filtered.add(i);showCatalog(filtered);}
+ }
+ private void loadTmdb(String query){
+  String key=TmdbClient.key(this);
+  if(key.isEmpty()){content.removeAllViews();state("LAB · Chiave TMDB non configurata");return;}
+  job("LAB · VixSrc: catalogo TMDB"+(query.isEmpty()?"":" · ricerca «"+query+"»"),()->{
+   List<VodSource.Title> titles=TmdbClient.catalog(0,query,1,key,VodSource.HTTP);
+   return titles;
+  },value->{
+   tmdbTitles.clear();ArrayList<Item> result=new ArrayList<>();
+   for(VodSource.Title title:(List<VodSource.Title>)value){long id=title.json.optLong("tmdb_id");if(id<=0)continue;
+    String identity=(title.series()?"tv":"movie")+":"+id;
+    tmdbTitles.put(identity,title);
+    result.add(new Item(title.name,title.poster,"",identity,title.year,title.series()?"Serie":"Film"));
+   }
+   showCatalog(result);
+  });
  }
  private List<Item> fromSC(List<VodSource.Title> titles){ArrayList<Item> out=new ArrayList<>();for(VodSource.Title t:titles)out.add(new Item(t.name,t.poster,source.url+t.path(),t.id,t.year,t.series()?"Serie":"Film"));return out;}
  private void showCatalog(List<Item> found){items.clear();items.addAll(found);content.removeAllViews();state("LAB · "+found.size()+" titoli · Seleziona la locandina per cercare le fonti");
@@ -81,7 +101,49 @@ public final class ExperimentalCatalogActivity extends Activity {
   add(pane,text(item.name+" · "+item.kind,21));Button goBack=button("← Torna alle locandine");add(pane,goBack);goBack.setOnClickListener(v->showCatalog(new ArrayList<>(items)));
   TextView note=text("Le fonti vengono elencate separatamente dal catalogo. Solo i collegamenti video HTTPS supportati potranno aprirsi nel player LAB; i collegamenti a pagine host richiedono un adattatore compatibile.",14);add(pane,note);
   LinearLayout rows=new LinearLayout(this);rows.setOrientation(1);add(pane,rows);
+  if(nativeVix()){renderVixSources(rows,item);return;}
   job("Analisi delle fonti di «"+item.name+"»…",()->ExperimentalHostInspector.inspect(item.url),o->{ExperimentalHostInspector.Result result=(ExperimentalHostInspector.Result)o;hosts.clear();hosts.addAll(result.links);renderSources(rows,result);});
+ }
+ private void renderVixSources(LinearLayout rows,Item item){
+  rows.removeAllViews();
+  final VodSource.Title title=tmdbTitles.get(item.id);
+  if(title==null){add(rows,text("Titolo TMDB non disponibile.",15));return;}
+  state("LAB · VixSrc · "+item.name+" · catalogo TMDB");
+  if(!title.series()){
+   Button b=button("VixSrc · Prova fonte nel player interno");add(rows,b);
+   b.setOnClickListener(v->resolveVix(title,0,0));
+  }else{
+   Button season=button("Scegli stagione ed episodio");add(rows,season);
+   season.setOnClickListener(v->chooseVixSeason(title));
+  }
+ }
+ private void chooseVixSeason(VodSource.Title title){
+  EditText season=new EditText(this);season.setInputType(InputType.TYPE_CLASS_NUMBER);season.setHint("Numero stagione (es. 1)");
+  new AlertDialog.Builder(this).setTitle("VixSrc · Stagione").setView(season).setPositiveButton("Continua",(d,n)->{
+   try{int sn=Integer.parseInt(season.getText().toString().trim());if(sn<1||sn>100)throw new Exception();chooseVixEpisode(title,sn);}
+   catch(Exception e){state("LAB · Numero stagione non valido");}
+  }).setNegativeButton("Annulla",null).show();
+ }
+ private void chooseVixEpisode(VodSource.Title title,int season){
+  job("LAB · Caricamento episodi stagione "+season+"…",()->TmdbClient.episodes(title,season,TmdbClient.key(this),VodSource.HTTP),value->{
+   org.json.JSONArray all=(org.json.JSONArray)value;
+   String[] labels=new String[all.length()];
+   for(int i=0;i<all.length();i++){org.json.JSONObject e=all.optJSONObject(i);labels[i]=(e==null?"Episodio "+(i+1):"E"+e.optInt("number",i+1)+" · "+e.optString("name","Episodio"));}
+   if(labels.length==0){state("LAB · Nessun episodio individuato");return;}
+   new AlertDialog.Builder(this).setTitle("Stagione "+season).setItems(labels,(d,index)->{
+    org.json.JSONObject e=all.optJSONObject(index);int ep=e==null?index+1:e.optInt("number",index+1);
+    resolveVix(title,season,ep);
+   }).setNegativeButton("Annulla",null).show();
+  });
+ }
+ private void resolveVix(VodSource.Title title,int season,int episode){
+  try{title.json.put("_seasonNumber",season);title.json.put("_episodeNumber",episode);}catch(Exception ignored){}
+  job("LAB · Resolver VixSrc esistente…",()->VixSrc.resolve(source,title,episode==0?"":String.valueOf(episode),VodSource.HTTP),value->{
+   VodSource.Stream stream=(VodSource.Stream)value;
+   new AlertDialog.Builder(this).setTitle("VixSrc · Fonte individuata").setMessage("Prova nel player LAB usando la configurazione HTTPS prevista per VixSrc?")
+    .setPositiveButton("Riproduci",(d,n)->play(stream.url,stream.referer,source.url))
+    .setNegativeButton("Annulla",null).show();
+  });
  }
  private void renderSources(LinearLayout rows,ExperimentalHostInspector.Result result){rows.removeAllViews();state("LAB · "+selected.name+" · "+result.links.size()+" collegamenti rilevati · HTTP "+result.status);
   if(result.links.isEmpty())add(rows,text("Nessun host o flusso diretto trovato nell'HTML accessibile. Può essere necessario un resolver specifico.",16));
@@ -95,7 +157,8 @@ public final class ExperimentalCatalogActivity extends Activity {
  private void inspectHost(String url,LinearLayout rows){job("Analisi host…",()->ExperimentalHostInspector.inspect(url),o->renderSources(rows,(ExperimentalHostInspector.Result)o));}
  private void resolveSC(){Item t=selected;job("Verifica sorgente video per «"+t.name+"»…",()->VodSource.resolve(source.url,t.id,"",VodSource.HTTP),o->{VodSource.Stream stream=(VodSource.Stream)o;
   new AlertDialog.Builder(this).setTitle("Flusso HLS individuato").setMessage("Il resolver ha ottenuto un flusso. Vuoi tentare la riproduzione nel player LAB? Un server può comunque rifiutare l'accesso.").setPositiveButton("Player interno",(d,n)->play(stream.url)).setNegativeButton("Annulla",null).show();});}
- private void play(String url){startActivity(new Intent(this,ExperimentalPlayerActivity.class).putExtra("stream_url",url));}
+ private void play(String url){play(url,"","");}
+ private void play(String url,String referer,String origin){startActivity(new Intent(this,ExperimentalPlayerActivity.class).putExtra("stream_url",url).putExtra("stream_referer",referer).putExtra("stream_origin",origin));}
  private static final Pattern LINK_IMG=Pattern.compile("(?is)<a\\b[^>]*href\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>(.{0,2500}?)</a>");
  private static final Pattern IMAGE=Pattern.compile("(?is)<img\\b[^>]*(?:data-src|src)\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>");
  private static final Pattern ALT=Pattern.compile("(?is)<img\\b[^>]*alt\\s*=\\s*['\"]([^'\"]+)['\"]");

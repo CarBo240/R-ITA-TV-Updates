@@ -23,7 +23,7 @@ final class ExperimentalHostInspector {
  private static String classify(String host){
   if(has(host,"mixdrop"))return "MixDrop · host video";
   if(has(host,"maxstream")||has(host,"maxstream.video"))return "MaxStream · host video";
-  if(has(host,"altadefinizione"))return "AltaDefinizione · catalogo";
+  if(has(host,"altadefinizione"))return "Collegamento pagina";
   return "Collegamento pagina";
  }
  private static boolean direct(String path){String p=path.toLowerCase(Locale.ROOT);return p.matches(".*\\.(m3u8|mpd|mp4)(?:$|[?].*)");}
