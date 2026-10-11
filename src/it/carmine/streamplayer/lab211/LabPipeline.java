@@ -23,10 +23,16 @@ public final class LabPipeline {
   public final String name,poster,url;
   public Title(String n,String p,String u){name=n;poster=p;url=u;}
  }
+ public enum SourceKind { MEDIA, HOST, PAGE, INTERMEDIARY, TRAILER }
  public static final class Source {
-  public final String url,label,referer;
-  public Source(String u,String l,String r){url=u;label=l;referer=r;}
+  public final String url,label,referer;public final SourceKind kind;
+  public Source(String u,String l,String r){url=u;label=l;referer=r;kind=classify(u,l);}
  }
+ public static final class SourceReport {
+  public final List<Source> sources,trailers;
+  public SourceReport(List<Source> all){List<Source> main=new ArrayList<>(),preview=new ArrayList<>();for(Source source:all)(source.kind==SourceKind.TRAILER?preview:main).add(source);sources=Collections.unmodifiableList(main);trailers=Collections.unmodifiableList(preview);}
+ }
+
  public static final class Subtitle {
   public final String url,language,label,mime;
   public Subtitle(String u,String l,String n,String m){url=u;language=l;label=n;mime=m;}
@@ -62,7 +68,7 @@ public final class LabPipeline {
   https(url);Page page;
   try{page=transport.get(url,referer,media);}catch(Failure e){emit(stage,e.code,e.getMessage());throw new Failure(stage,e.code,e.getMessage());}catch(Exception e){emit(stage,"NETWORK",e.getClass().getSimpleName());throw new Failure(stage,"NETWORK",e.getClass().getSimpleName());}
   https(page.url);emit(stage,"HTTP_"+page.status,host(page.url));
-  if(page.status!=200&&page.status!=206)throw new Failure(stage,"HTTP_"+page.status,"Risposta HTTP "+page.status+" da "+host(page.url));
+  if(page.status!=200&&page.status!=206)throw new Failure(stage,"HTTP_"+page.status,page.status==403?"Accesso rifiutato (HTTP 403) da "+host(page.url)+"; nessuna sorgente letta, causa non determinata":"Risposta HTTP "+page.status+" da "+host(page.url));
   if(!media&&(page.text().contains("cf-chl-")||page.text().contains("g-recaptcha")||page.text().contains("h-captcha")))throw new Failure(stage,"ACCESS_CHALLENGE","La pagina richiede una verifica interattiva; nessun aggiramento");
   return page;
  }
@@ -71,13 +77,18 @@ public final class LabPipeline {
   List<Title> titles=adapter.titles(page);emit(Stage.CATALOG,"TITLES",titles.size()+" locandine");
   if(titles.isEmpty())throw new Failure(Stage.CATALOG,"NO_TITLES","Nessun titolo compatibile con "+adapter.name()+"; layout o contenuto non supportato");return titles;
  }
+ public SourceReport sourceReport(CatalogAdapter adapter,Title title)throws Exception {
+  Page page=fetch(title.url,title.url,false,Stage.HOST_SEARCH);SourceReport report=new SourceReport(adapter.sources(page));
+  emit(Stage.HOST_SEARCH,"SOURCES",report.sources.size()+" collegamenti candidati · "+report.trailers.size()+" trailer/YouTube separati");
+  if(report.sources.isEmpty())emit(Stage.HOST_SEARCH,report.trailers.isEmpty()?"NO_SOURCES":"TRAILER_ONLY",report.trailers.isEmpty()?"Nessun collegamento video individuato nel markup pubblico":"Trovati soltanto trailer/YouTube; nessuna fonte del titolo individuata");return report;
+ }
  public List<Source> sources(CatalogAdapter adapter,Title title)throws Exception {
-  Page page=fetch(title.url,title.url,false,Stage.HOST_SEARCH);List<Source> sources=adapter.sources(page);
-  emit(Stage.HOST_SEARCH,"SOURCES",sources.size()+" fonti dichiarate");
-  if(sources.isEmpty())throw new Failure(Stage.HOST_SEARCH,"NO_SOURCES","Nessun collegamento video pubblico; eventuali link protetti non sono risolti");return sources;
+  SourceReport report=sourceReport(adapter,title);if(report.sources.isEmpty())throw new Failure(Stage.HOST_SEARCH,report.trailers.isEmpty()?"NO_SOURCES":"TRAILER_ONLY",report.trailers.isEmpty()?"Nessun collegamento video individuato; layout, script o intermediari non supportati":"La pagina contiene soltanto trailer/YouTube riconosciuti; nessuna fonte del titolo individuata");return report.sources;
  }
  public HostResolver resolver(String url)throws Exception{URI uri=https(url);for(HostResolver r:resolvers)if(r.matches(uri))return r;throw new Failure(Stage.RESOLVER,"UNSUPPORTED_HOST","Host senza adattatore: "+uri.getHost());}
  public Media resolve(Source source)throws Exception {
+  if(source.kind==SourceKind.TRAILER)throw new Failure(Stage.RESOLVER,"TRAILER_EXCLUDED","Trailer/anteprima escluso dal player del titolo");
+  if(source.kind==SourceKind.INTERMEDIARY)throw new Failure(Stage.RESOLVER,"INTERMEDIARY_UNSUPPORTED","Intermediario "+host(source.url)+": collegamento rilevato, estrazione non implementata; nessun flusso recuperato");
   String direct=mime(source.url);Media result;
   if(!direct.isEmpty()){emit(Stage.RESOLVER,"DIRECT",direct);result=new Media(source.url,direct,source.referer,"Diretto",Collections.emptyList());}
   else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",r.name());Page page=fetch(source.url,source.referer,false,Stage.RESOLVER);
@@ -94,9 +105,27 @@ public final class LabPipeline {
  }
  public static String detectedMime(Page page){String text=page.text().trim();if(text.startsWith("\ufeff"))text=text.substring(1).trim();if(text.startsWith("#EXTM3U"))return HLS;if(text.matches("(?s)(?:<\\?xml[^>]*>\\s*)?<MPD(?:\\s|>).*"))return DASH;if(page.bytes.length>=12&&new String(page.bytes,4,4,StandardCharsets.US_ASCII).equals("ftyp"))return MP4;return "";}
  public static Map<String,String> attrs(String tag){Map<String,String> out=new HashMap<>();Matcher m=Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])(.*?)\\2",Pattern.DOTALL).matcher(tag);while(m.find())out.put(m.group(1).toLowerCase(Locale.ROOT),decode(m.group(3)));return out;}
- public static List<Source> declaredSources(Page page){LinkedHashMap<String,Source> all=new LinkedHashMap<>();Matcher tags=Pattern.compile("(?is)<(?:a|iframe|source|video)\\b[^>]{0,8192}>").matcher(page.text());while(tags.find()&&all.size()<100){Map<String,String> a=attrs(tags.group());String raw=a.getOrDefault("href",a.getOrDefault("data-src",a.getOrDefault("src","")));String u=absolute(page.url,raw);if(u.isEmpty()||raw.isEmpty())continue;
-   if(!mime(u).isEmpty()||knownHost(host(u))||tags.group().toLowerCase(Locale.ROOT).startsWith("<iframe")){all.putIfAbsent(u,new Source(u,a.getOrDefault("title",host(u)),page.url));}}
-  return new ArrayList<>(all.values());}
+ public static SourceKind classify(String url,String label){
+  String h=host(url).toLowerCase(Locale.ROOT);String context=(label==null?"":label).toLowerCase(Locale.ROOT);
+  if(trailerPlatform(h)||previewLabel(context)||url.toLowerCase(Locale.ROOT).matches(".*[?&](?:content|type|mode)=(?:trailer|teaser|preview)(?:[&#].*|$)"))return SourceKind.TRAILER;
+  if(!mime(url).isEmpty())return SourceKind.MEDIA;if(knownHost(h))return SourceKind.HOST;
+  if(intermediary(h))return SourceKind.INTERMEDIARY;return SourceKind.PAGE;
+ }
+ private static boolean previewLabel(String label){return label.matches("(?i)(?:.*\\s[-·:]\\s*)?(?:trailer|teaser|preview|anteprima)(?:\\s+(?:ita|it|en|ufficiale|official|hd|4k))*");}
+ private static boolean trailerPlatform(String h){return h.equals("youtu.be")||h.equals("youtube.com")||h.endsWith(".youtube.com")||h.equals("youtube-nocookie.com")||h.endsWith(".youtube-nocookie.com");}
+ public static boolean intermediary(String h){for(String stem:new String[]{"stayonline","staycheck","uprot","rapidcrypt","linkhub","protectlinker","safevideo"})if(domain(h,stem))return true;return false;}
+ private static String first(Map<String,String> attrs,String... keys){for(String key:keys){String value=attrs.get(key);if(value!=null&&!value.trim().isEmpty())return value;}return "";}
+ public static List<Source> declaredSources(Page page){LinkedHashMap<String,Source> all=new LinkedHashMap<>();String html=page.text();
+  Matcher tags=Pattern.compile("(?is)<(a|iframe|source|video|button|option|div)\\b[^>]{0,8192}>").matcher(html);
+  while(tags.find()&&all.size()<100){Map<String,String> a=attrs(tags.group());String tag=tags.group(1).toLowerCase(Locale.ROOT);String raw=first(a,"data-src","data-url","data-link","href","src", "value");String u=absolute(page.url,raw);if(u.isEmpty())continue;
+   String label=first(a,"title","aria-label","data-title");if(label.isEmpty()&&(tag.equals("a")||tag.equals("button")||tag.equals("option"))){int closing=html.indexOf("</"+tag,tags.end());if(closing>=tags.end()&&closing-tags.end()<500)label=decode(html.substring(tags.end(),closing).replaceAll("<[^>]*>"," ").replaceAll("\\s+"," ").trim());}
+   if(label.isEmpty())label=host(u);Source source=new Source(u,label,page.url);
+   if(!mime(u).isEmpty()||knownHost(host(u))||intermediary(host(u))||tag.equals("iframe")||source.kind==SourceKind.TRAILER||(tag.equals("a")&&label.matches("(?is).*\\s[-·:]\\s*player"))){
+    Source previous=all.get(u);if(previous==null||(!previous.label.equals(label)&&previous.label.equals(host(u))))all.put(u,source);
+   }
+  }return new ArrayList<>(all.values());
+ }
+ public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · estrazione non supportata";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
  public static boolean knownHost(String h){for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
  private abstract static class PublicResolver implements HostResolver {

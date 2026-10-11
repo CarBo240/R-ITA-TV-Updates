@@ -50,6 +50,31 @@ public final class LabPipelineCheck {
   check(pipeline.resolve(sources.get(0)).url.equals(stream),"host redirects directly to media");
   check(new LabPipeline.WordpressCatalog().titles(pages.get(base)).size()==1,"WordPress adapter");
   check(new LabPipeline.DleCatalog().search(base,"film prova").contains("story=film+prova"),"DLE remote search");
+  // Regression: screenshots 1513/1514 from the user; synthetic URLs and markup.
+  String candidatePage="<iframe src='https://www.youtube.com/embed/preview'></iframe>";
+  List<LabPipeline.Source> previewOnly=LabPipeline.declaredSources(page(base,candidatePage));
+  LabPipeline.SourceReport previewReport=new LabPipeline.SourceReport(previewOnly);
+  check(previewReport.sources.isEmpty()&&previewReport.trailers.size()==1,"YouTube not a feature-video source");
+  failure("TRAILER_EXCLUDED",()->pipeline.resolve(previewOnly.get(0)));
+  String neagley="<iframe title='Serie - Trailer' src='https://v.vidxgo.co/x?content=trailer&amp;player=false'></iframe><iframe title='Serie - Player' src='https://v.vidxgo.co/x/1/1?se=0'></iframe>";
+  LabPipeline.SourceReport split=new LabPipeline.SourceReport(LabPipeline.declaredSources(page(base,neagley)));
+  check(split.trailers.size()==1&&split.sources.size()==1,"separate trailer and player");
+  check(split.sources.get(0).kind==LabPipeline.SourceKind.PAGE,"unknown page is unverified, not supported HTML5");
+  check(LabPipeline.sourceStatus(split.sources.get(0)).contains("da verificare"),"honest source status");
+  String candidate=split.sources.get(0).url;pages.put(candidate,new LabPipeline.Page(candidate,403,"text/html",new byte[0]));
+  failure("HTTP_403",()->pipeline.resolve(split.sources.get(0)));
+  String wrappers="<a href='https://stayonline.example/l/x'>MixDrop HD</a><a href='https://uprot.net/msf/id'>MaxStream</a>";
+  List<LabPipeline.Source> links=LabPipeline.declaredSources(page(base,wrappers));
+  check(links.size()==2,"public intermediary links not discarded");check(links.get(0).kind==LabPipeline.SourceKind.INTERMEDIARY,"intermediary status");
+  check(links.get(0).label.equals("MixDrop HD"),"anchor label preserved");failure("INTERMEDIARY_UNSUPPORTED",()->pipeline.resolve(links.get(0)));
+  check(LabPipeline.declaredSources(page(base,"<button data-url='https://mixdrop.si/e/x'>MixDrop</button>")).size()==1,"data-url source");
+  check(LabPipeline.declaredSources(page(base,"<iframe src='about:blank' data-src='https://supervideo.tv/embed-x.html'></iframe>")).get(0).kind==LabPipeline.SourceKind.HOST,"lazy iframe source");
+  check(LabPipeline.declaredSources(page(base,"<iframe data-src='' src='https://vidoza.net/x'></iframe>")).size()==1,"empty lazy src falls back");
+  check(new LabPipeline.Source("https://maxstream.video/x","Trailer Park Boys",base).kind==LabPipeline.SourceKind.HOST,"film name not misclassified as trailer");
+  check(new LabPipeline.Source("https://maxstream.video/x","Film - Trailer",base).kind==LabPipeline.SourceKind.TRAILER,"explicit trailer suffix");
+  check(new LabPipeline.Source("https://youtube.com.evil.example/x","Player",base).kind==LabPipeline.SourceKind.PAGE,"platform matching uses exact domain suffix");
+  pages.put(detail,page(detail,candidatePage));failure("TRAILER_ONLY",()->pipeline.sources(adapter,titles.get(0)));
+  check(LabPipeline.declaredSources(page(base,"<a title='Film - Player' href='https://external.example/page'>Apri</a>")).size()==1,"explicit player page link");
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures only.");
  }
 }
