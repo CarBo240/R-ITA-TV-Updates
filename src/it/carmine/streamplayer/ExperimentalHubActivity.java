@@ -71,11 +71,12 @@ public final class ExperimentalHubActivity extends Activity {
   }
  }
  private void options(VodSettings.Source s){
-  String[] options={"Analizza collegamenti pagina","Apri catalogo nel browser TEST","Cerca titolo nel catalogo TEST","Apri home del provider", "Informazioni provider"};
+  String[] options={"Catalogo con locandine → Fonti → Player", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Ricerca testuale precedente", "Informazioni provider"};
   new AlertDialog.Builder(this).setTitle("TEST · "+s.name).setItems(options,(d,n)->{
-   if(n==0)askInspect(s.url);
-   else if(n==1||n==3)browser(s.url,s.name);
-   else if(n==2)search(s);
+   if(n==0)startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));
+   else if(n==1)askInspect(s.url);
+   else if(n==2)browser(s.url,s.name);
+   else if(n==3)search(s);
    else new AlertDialog.Builder(this).setTitle(s.name).setMessage("Tipo: "+s.type+"\nURL: "+s.url+"\nI resolver del laboratorio non modificano il catalogo principale. I provider web senza API di catalogo supportata vengono esplorati nel browser TEST.").setPositiveButton("OK",null).show();
   }).setNegativeButton("Annulla",null).show();
  }
