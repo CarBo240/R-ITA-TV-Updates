@@ -102,7 +102,7 @@ public final class ExperimentalCatalogActivity extends Activity {
   TextView note=text("Le fonti vengono elencate separatamente dal catalogo. Solo i collegamenti video HTTPS supportati potranno aprirsi nel player LAB; i collegamenti a pagine host richiedono un adattatore compatibile.",14);add(pane,note);
   LinearLayout rows=new LinearLayout(this);rows.setOrientation(1);add(pane,rows);
   if(nativeVix()){renderVixSources(rows,item);return;}
-  job("Analisi delle fonti di «"+item.name+"»…",()->ExperimentalHostInspector.inspect(item.url),o->{ExperimentalHostInspector.Result result=(ExperimentalHostInspector.Result)o;hosts.clear();hosts.addAll(result.links);renderSources(rows,result);});
+  job("Analisi delle fonti di «"+item.name+"»…",()->nativeSC()?ExperimentalHostInspector.inspect(item.url):ExperimentalMultiHostResolver.inspect(item.url),o->{ExperimentalHostInspector.Result result=(ExperimentalHostInspector.Result)o;hosts.clear();hosts.addAll(result.links);renderSources(rows,result);});
  }
  private void renderVixSources(LinearLayout rows,Item item){
   rows.removeAllViews();
@@ -154,7 +154,7 @@ public final class ExperimentalCatalogActivity extends Activity {
   }).show());}
   if(nativeSC()&&selected.id.matches("[0-9]+")){Button test=button("Prova resolver Streaming Community esistente");add(rows,test);test.setOnClickListener(v->resolveSC());}
  }
- private void inspectHost(String url,LinearLayout rows){job("Analisi host…",()->ExperimentalHostInspector.inspect(url),o->renderSources(rows,(ExperimentalHostInspector.Result)o));}
+ private void inspectHost(String url,LinearLayout rows){job("Analisi host…",()->nativeSC()?ExperimentalHostInspector.inspect(url):ExperimentalMultiHostResolver.inspect(url),o->renderSources(rows,(ExperimentalHostInspector.Result)o));}
  private void resolveSC(){Item t=selected;job("Verifica sorgente video per «"+t.name+"»…",()->VodSource.resolve(source.url,t.id,"",VodSource.HTTP),o->{VodSource.Stream stream=(VodSource.Stream)o;
   new AlertDialog.Builder(this).setTitle("Flusso HLS individuato").setMessage("Il resolver ha ottenuto un flusso. Vuoi tentare la riproduzione nel player LAB? Un server può comunque rifiutare l'accesso.").setPositiveButton("Player interno",(d,n)->play(stream.url)).setNegativeButton("Annulla",null).show();});}
  private void play(String url){play(url,"","");}
