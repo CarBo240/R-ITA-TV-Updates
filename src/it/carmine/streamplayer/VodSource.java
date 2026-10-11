@@ -48,8 +48,40 @@ final class VodSource {
  }
  private static String optionalField(String block,String key){Matcher m=Pattern.compile("['\"]?"+key+"['\"]?\\s*:\\s*['\"]([^'\"]*)['\"]").matcher(block);return m.find()?m.group(1):"";}
  private static String field(String block,String key)throws Exception{String v=optionalField(block,key);if(v.isEmpty())throw new IOException("Parametro video assente: "+key);return v;}
+ /** Diagnostic metadata is kept in memory only; signed URLs, cookies and tokens are never displayed. */
  static final class StageError extends IOException {
-  StageError(String stage,Exception cause){super("D213-"+stage+" · "+VodNetwork.error(cause),cause);}
+  final String playlistSignature, expiryInformation;
+  StageError(String stage,Exception cause){this(stage,cause,"","");}
+  StageError(String stage,Exception cause,String signature,String expiry){
+   super("D214-"+stage+" · "+VodNetwork.error(cause),cause);
+   playlistSignature=signature;expiryInformation=expiry;
+  }
+ }
+ private static String fingerprint(String url){
+  try{
+   byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(url.getBytes(StandardCharsets.UTF_8));
+   StringBuilder result=new StringBuilder();for(byte b:hash)result.append(String.format(Locale.ROOT,"%02x",b&255));
+   return result.toString();
+  }catch(Exception ignored){return "";}
+ }
+ /** Timestamp check is informational, not a proof of server authorization. */
+ private static String expiryInformation(String url){
+  try{
+   String query=new URI(url).getRawQuery();if(query==null)return "Scadenza URL non indicata";
+   for(String pair:query.split("&")){
+    String[] kv=pair.split("=",2);if(kv.length!=2||!"expires".equalsIgnoreCase(kv[0]))continue;
+    String raw=URLDecoder.decode(kv[1],"UTF-8");
+    if(!raw.matches("[0-9]{9,16}"))return "Scadenza URL non interpretabile";
+    long unix=Long.parseLong(raw);if(raw.length()>=13)unix/=1000L;
+    long remaining=unix-System.currentTimeMillis()/1000L;
+    return remaining<=0?"Scadenza URL trascorsa":"Scadenza URL futura (non garantisce accesso)";
+   }
+  }catch(Exception ignored){return "Scadenza URL non interpretabile";}
+  return "Scadenza URL non indicata";
+ }
+ private static String diagnosticPlaylist(String url,String referer,Fetcher fetcher)throws Exception{
+  try{return fetcher.get(url,referer);}
+  catch(Exception cause){throw new StageError("Playlist HLS",cause,fingerprint(url),expiryInformation(url));}
  }
  private static String diagnosticFetch(String stage,String url,String referer,Fetcher fetcher)throws Exception{
   try{return fetcher.get(url,referer);}catch(Exception cause){throw new StageError(stage,cause);}
@@ -57,6 +89,6 @@ final class VodSource {
  static Stream resolve(String home,String id,String episode,Fetcher f)throws Exception{
   if(!id.matches("[0-9]+")||(!episode.isEmpty()&&!episode.matches("[0-9]+")))throw new IOException("Titolo non valido");String watch=home+"/it/watch/"+id+(episode.isEmpty()?"":"?e="+episode);
   JSONObject p=props(diagnosticFetch("Pagina riproduzione",fresh(watch),home+"/",f));if(p.optBoolean("redirectToLogin"))throw new IOException("Questa fonte richiede accesso sul sito");String outer=p.optString("embedUrl","");if(outer.isEmpty())throw new IOException("Video non disponibile");String embed=iframe(diagnosticFetch("Pagina player",fresh(outer),watch,f),outer);String html=diagnosticFetch("Iframe video",embed,outer,f);String url=playlist(html);
-  String manifest=diagnosticFetch("Playlist HLS",url,embed,f);if(!manifest.trim().startsWith("#EXTM3U"))throw new IOException("Playlist non disponibile");return new Stream(url,embed);
+  String manifest=diagnosticPlaylist(url,embed,f);if(!manifest.trim().startsWith("#EXTM3U"))throw new IOException("Playlist non disponibile");return new Stream(url,embed);
  }
 }
