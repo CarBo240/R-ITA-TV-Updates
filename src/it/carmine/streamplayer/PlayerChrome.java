@@ -24,7 +24,7 @@ final class PlayerChrome {
   View view=find(player,"exo_progress");if(view instanceof DefaultTimeBar){DefaultTimeBar bar=(DefaultTimeBar)view;
    bar.animate().cancel();bar.setScaleX(1);bar.setScaleY(1);bar.setElevation(0);
    try{setSize(bar,"scrubberEnabledSize",dp(c,10));setSize(bar,"scrubberDraggedSize",dp(c,12));}catch(Exception ignored){}
-   final boolean[] scrubbing={false};Runnable update=()->{int color=bar.hasFocus()||scrubbing[0]?amber:Color.WHITE;bar.setPlayedColor(color);bar.setScrubberColor(color);bar.setBufferedColor((color&0x00ffffff)|0xa0000000);bar.setUnplayedColor((color&0x00ffffff)|0x55000000);bar.invalidate();};
+   final boolean[] scrubbing={false};Runnable update=()->{boolean selected=bar.hasFocus()||scrubbing[0];int color=selected?amber:Color.WHITE;try{setSize(bar,"scrubberEnabledSize",dp(c,selected?14:10));setSize(bar,"scrubberDraggedSize",dp(c,14));}catch(Exception ignored){}bar.setPlayedColor(color);bar.setScrubberColor(color);bar.setBufferedColor((color&0x00ffffff)|0xa0000000);bar.setUnplayedColor((color&0x00ffffff)|0x55000000);bar.invalidate();};
    bar.setOnFocusChangeListener((v,focused)->update.run());
    // Idempotent because applyVod is also called after player attachment.
    Object prior=bar.getTag(it.carmine.streamplayer.R.id.vod_scrub_listener);if(prior instanceof TimeBar.OnScrubListener)bar.removeListener((TimeBar.OnScrubListener)prior);

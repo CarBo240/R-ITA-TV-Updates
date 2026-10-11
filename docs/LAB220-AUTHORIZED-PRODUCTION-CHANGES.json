@@ -1,8 +1,8 @@
 {
   "src/it/carmine/streamplayer/PlayerChrome.java": {
     "original_sha256": "e60b8985bb5b2fd46b5c25c25719b76197476b20424ccae00c3c9efb6cc09a2e",
-    "sha256": "92a520ce20af0f3a5777e41d110852315baab47884e71d804e620d64e10ef6b5",
-    "reason": "Focus VOD bianco/ambra, scrubber ridotto e seek più visibile; altri player conservati"
+    "sha256": "74c77dd2b728660f1ee2960f6801d9ff79d0be1f70b2511c0e253b14d8d98597",
+    "reason": "Focus VOD bianco/ambra, cursore 10 dp normale e 14 dp selezionato (2.1.21), seek pi\u00f9 visibile; altri player conservati"
   },
   "src/it/carmine/streamplayer/VodActivity.java": {
     "original_sha256": "cef79a64d7240a4d7fc6fd45d0a7dbbd54d4d013bb04a909680d37d9c4f497e0",

@@ -1,48 +1,13 @@
-# Applicazione della patch e build
+# R. ITA TV 2.1.21 LAB · GitHub
 
-## ZIP
+Versione 2.1.21, versionCode 79, package originale `it.carmine.streamplayer`.
 
-Lo ZIP dei soli file modificati contiene nuovi file e sostituzioni rispetto alla 2.1.20. Estrarre nella root del repository mantenendo le directory. Lo ZIP completo conserva anche tutte le copie root già presenti nell'archivio originale; Gradle compila `src`, come prima. Non usare l'APK Veezie come dipendenza.
+La patch ZIP contiene soltanto file nuovi o modificati rispetto ai sorgenti completi 2.1.20 LAB. Estrarla nella root mantenendo tutte le directory. Per una base precedente usare lo ZIP completo. Le copie root storiche vengono conservate; Gradle compila `src`.
 
-## Android Studio / GitHub
+Il workflow `.github/workflows/build-apk.yml` conserva firma e varianti originali, esegue i controlli LAB e usa il nome artifact R-ITA-TV-v2.1.21-LAB-APK. Configurare JDK 17, Android SDK e dipendenze previste dal progetto. Non usare Veezie come dipendenza. Non commettere password, keystore privati, cookie o token Infinity.
 
-`local.properties` non contiene più il percorso SDK assoluto di una vecchia sessione; Android Studio lo configura localmente e GitHub usa ANDROID_HOME. Il workflow build-apk conserva firma e varianti originali, aggiunge i 207 controlli LAB prima della build e usa il nome artifact 2.1.20 LAB.
+Consultare CHANGELOG-2.1.21-LAB.md e docs/LAB221-VERIFICA.md. Infinity è un esperimento web separato nel LAB, con accesso e playback da verificare sul dispositivo; non è ancora un provider nativo R. ITA o un resolver DRM Media3. Le fonti già integrate e il percorso Streaming Community sperimentale restano conservati.
 
-Aprire il progetto con JDK 17, Android SDK 36 e Build Tools 35.0.0. Conservare le dipendenze e le esclusioni originali. È necessaria la connettività verso Google Maven e Maven Central.
+Controlli disponibili: scripts/check-lab211.sh e scripts/check-lab211-preservation.py. La lista originale LAB211-PRESERVED-SHA256.json resta immutata; LAB220-AUTHORIZED-PRODUCTION-CHANGES.json registra le quattro eccezioni produzione autorizzate e l'hash corrente di PlayerChrome.
 
-```bash
-gradle compileDebugJavaWithJavac
-gradle assembleRelease
-```
-
-Il progetto allegato non contiene Gradle wrapper né chiave di firma. `assembleRelease` mantiene il tipo release non firmato della base. Firmare con la **stessa chiave usata per la propria app** prima di installare come aggiornamento; non sostituire la firma con una chiave nuova. I parametri debug originali richiedono `RITA_KEYSTORE_FILE`, `RITA_KEYSTORE_PASSWORD`, `RITA_KEY_ALIAS`, `RITA_KEY_PASSWORD` se si vuole produrre un APK debug firmato. Nessuna credenziale è inclusa.
-
-La versione è 2.1.20, codice 76, package originale `it.carmine.streamplayer`. Nessuna pubblicazione GitHub o installazione è stata effettuata qui.
-
-## Test indipendente dal SDK
-
-Con Java 17 nel PATH:
-
-```bash
-bash scripts/check-lab211.sh
-```
-
-Questo test non effettua richieste a host esterni. Verifica i parser e la pipeline usando risposte sintetiche controllate. Le prove della suite Android originale richiedono inoltre le dipendenze Robolectric.
-
-## Configurazione e prova su TV
-
-Nel Laboratorio TEST scegliere il provider web e l'adattatore adatto al suo layout. Oppure aggiungere un provider LAB con URL HTTPS e uno degli adattatori disponibili. Le nuove configurazioni risiedono solo nelle preferenze LAB.
-
-I file JSON di esempio in docs usano domini `.example`: sono **schemi da compilare**, non provider reali. Per usare JSON LAB, pubblicare un catalogo proprio/autorizzato con `labSchema: 1`, `titles` e campi `name`, `poster`, `detail`. La scheda `detail` deve rispondere con `sources`, contenenti `label` e `url`. Gli URL relativi e le query HTTPS sono ammessi; immagini e schede devono avere URL HTTPS.
-
-Sul dispositivo verificare l'intera sequenza: locandine → scheda → fonti → SOURCE VERIFIED → PLAYBACK FIRST_FRAME. READY significa che Media3 è pronto, non certifica da solo l'immagine visibile. Provare audio/sottotitoli dichiarati dal media, BACK e telecomando. Registrare il provider, l'adattatore, il dominio del server e il codice diagnostico, senza condividere token o credenziali.
-
-Limitazioni: prima pagina/catalogo fino a 100 titoli, nessuna paginazione automatica; serie senza un adattatore episodio dedicato elencano i link dichiarati nella scheda; nessun login nel nuovo client; cookie/challenge, wrapper dinamici, DRM o API riservate non sono risolti. Gli intermediari generici possono essere attraversati soltanto quando espongono un collegamento pubblico HTTPS univoco o un redirect ordinario. Streaming Community e VixSrc continuano nelle attività precedenti.
-
-La 2.1.20 aggiunge il catalogo AltaDefinizione `/film` e la ricerca `/search?q=`, il layout `movie/data-link`, la fonte candidata VixSrc da identità IMDb, il resolver VidXGo con rinnovo pubblico del token e la preferenza HLS MaxStream. La fonte VixSrc passa per il resolver e il player LAB originali, senza riscriverli. Consultare CHANGELOG-2.1.20-LAB.md e docs/LAB218-VERIFICA.md per limiti e prove richieste. Uprot → MaxStream e VidXGo sul dispositivo non sono ancora certificati. MixDrop resta sul percorso precedente; soltanto VidXGo attiva il nuovo gestore di sessione.
-
-## 2.1.20
-EuroStreaming.design dispone di adattatore film dedicato. MaxStream è ancora da verificare sul dispositivo; k9vo richiede API/firme autorizzate. Consultare `LAB219-VERIFICA.md`.
-
-## 2.1.20 · modifiche R. ITA autorizzate
-Il menu locandine, lo stile del player VOD e Altre fonti sono aggiornati. Quattro file di produzione hanno eccezioni documentate in LAB220-AUTHORIZED-PRODUCTION-CHANGES.json; tutti gli altri file originali restano protetti. Consultare LAB220-VERIFICA.md.
+La build locale di questa consegna si arresta prima della compilazione per AGP 8.9.1 non disponibile nella cache. Nessun APK, caricamento su GitHub o installazione è stato eseguito.
