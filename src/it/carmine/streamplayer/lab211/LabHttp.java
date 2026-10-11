@@ -24,5 +24,7 @@ public final class LabHttp implements LabPipeline.Transport {
   }
   throw new LabPipeline.Failure(LabPipeline.Stage.SOURCE,"REDIRECT_LIMIT","Superato limite di quattro redirect HTTPS");
  }
- public OkHttpClient client(){return client;}
+ // Media3 may encounter further redirects on HLS/DASH segments. Same-scheme
+ // redirects are ordinary playback requests; HTTPS downgrade stays forbidden.
+ public OkHttpClient client(){return client.newBuilder().followRedirects(true).followSslRedirects(false).build();}
 }

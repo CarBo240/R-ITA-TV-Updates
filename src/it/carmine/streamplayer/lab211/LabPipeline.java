@@ -74,7 +74,9 @@ public final class LabPipeline {
  }
  public List<Title> catalog(CatalogAdapter adapter,String base,String query)throws Exception {
   emit(Stage.CATALOG,"ADAPTER",adapter.name());Page page=fetch(query.isEmpty()?base:adapter.search(base,query),base,false,Stage.CATALOG);
-  List<Title> titles=adapter.titles(page);emit(Stage.CATALOG,"TITLES",titles.size()+" locandine");
+  List<Title> titles=adapter.titles(page);
+  if(adapter instanceof AltaCatalog&&!query.isEmpty()){List<Title> matching=new ArrayList<>();for(Title title:titles)if(title.name.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))matching.add(title);titles=matching;}
+  emit(Stage.CATALOG,"TITLES",titles.size()+" locandine");
   if(titles.isEmpty())throw new Failure(Stage.CATALOG,"NO_TITLES","Nessun titolo compatibile con "+adapter.name()+"; layout o contenuto non supportato");return titles;
  }
  public SourceReport sourceReport(CatalogAdapter adapter,Title title)throws Exception {
@@ -88,20 +90,41 @@ public final class LabPipeline {
  public HostResolver resolver(String url)throws Exception{URI uri=https(url);for(HostResolver r:resolvers)if(r.matches(uri))return r;throw new Failure(Stage.RESOLVER,"UNSUPPORTED_HOST","Host senza adattatore: "+uri.getHost());}
  public Media resolve(Source source)throws Exception {
   if(source.kind==SourceKind.TRAILER)throw new Failure(Stage.RESOLVER,"TRAILER_EXCLUDED","Trailer/anteprima escluso dal player del titolo");
-  if(source.kind==SourceKind.INTERMEDIARY)throw new Failure(Stage.RESOLVER,"INTERMEDIARY_UNSUPPORTED","Intermediario "+host(source.url)+": collegamento rilevato, estrazione non implementata; nessun flusso recuperato");
-  String direct=mime(source.url);Media result;
-  if(!direct.isEmpty()){emit(Stage.RESOLVER,"DIRECT",direct);result=new Media(source.url,direct,source.referer,"Diretto",Collections.emptyList());}
-  else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",r.name());Page page=fetch(source.url,source.referer,false,Stage.RESOLVER);
-   // HTTP redirects may legitimately change the host. Dispatch again on the final URL.
-   String redirectedMime=detectedMime(page);
-   if(!redirectedMime.isEmpty())result=new Media(page.url,redirectedMime,source.referer,r.name(),Collections.emptyList());
-   else {HostResolver finalResolver=resolver(page.url);if(!finalResolver.name().equals(r.name()))emit(Stage.RESOLVER,"REDISPATCH",finalResolver.name());
-    try{result=finalResolver.parse(page,source.referer);}catch(Failure e){emit(e.stage,e.code,e.getMessage());throw e;}}
-  }
+  Media result=resolvePublic(source,new LinkedHashSet<>(),0);
   emit(Stage.SOURCE,"DECLARED",result.host+" · "+result.mime);Page media=fetch(result.url,result.referer,true,Stage.SOURCE);
   String detected=detectedMime(media);
   if(detected.isEmpty())throw new Failure(Stage.SOURCE,"NOT_MEDIA","La risposta non contiene un manifest HLS/DASH o un file MP4 riconoscibile");
   emit(Stage.SOURCE,"VERIFIED",detected+" · "+host(media.url));return new Media(media.url,detected,result.referer,result.host,result.subtitles);
+ }
+ private Media resolvePublic(Source source,Set<String> visited,int depth)throws Exception {
+  if(depth>5)throw new Failure(Stage.RESOLVER,"CHAIN_LIMIT","Superati cinque passaggi pubblici verso il video");
+  if(!visited.add(source.url))throw new Failure(Stage.RESOLVER,"CHAIN_CYCLE","Collegamento circolare: "+host(source.url));
+  String direct=mime(source.url);Media result;
+  if(!direct.isEmpty()){emit(Stage.RESOLVER,"DIRECT",direct);result=new Media(source.url,direct,source.referer,"Diretto",Collections.emptyList());}
+  else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",source.kind==SourceKind.INTERMEDIARY?"Collegamenti pubblici · "+host(source.url):r.name());Page page=fetch(source.url,source.referer,false,Stage.RESOLVER);
+   // HTTP redirects may legitimately change the host. Dispatch again on the final URL.
+   String redirectedMime=detectedMime(page);
+   if(!redirectedMime.isEmpty())result=new Media(page.url,redirectedMime,source.referer,r.name(),Collections.emptyList());
+   else if(intermediary(host(page.url))){
+    emit(Stage.HOST_SEARCH,"INTERMEDIARY",host(page.url)+" · ricerca collegamenti pubblici");
+    List<Source> candidates=new ArrayList<>();
+    for(Source next:declaredSources(page))if(next.kind==SourceKind.HOST||next.kind==SourceKind.MEDIA||next.kind==SourceKind.INTERMEDIARY)candidates.add(next);
+    // Ordinary HTML refresh only. No remote code, hidden API, gate or token generation.
+    Matcher metas=Pattern.compile("(?is)<meta\\b[^>]*>").matcher(page.text());
+    while(metas.find()){Map<String,String> a=attrs(metas.group());if(!"refresh".equalsIgnoreCase(a.getOrDefault("http-equiv","")))continue;
+     Matcher target=Pattern.compile("(?is)(?:^|;)\\s*url\\s*=\\s*(.*?)\\s*$").matcher(a.getOrDefault("content",""));
+     if(target.find()){String raw=target.group(1).replaceAll("^['\"]|['\"]$","");String u=absolute(page.url,raw);if(!u.isEmpty()){Source next=new Source(u,source.label,page.url);if(next.kind==SourceKind.HOST||next.kind==SourceKind.MEDIA||next.kind==SourceKind.INTERMEDIARY)candidates.add(next);}}
+    }
+    LinkedHashMap<String,Source> unique=new LinkedHashMap<>();for(Source next:candidates)unique.putIfAbsent(next.url,next);candidates=new ArrayList<>(unique.values());
+    if(candidates.size()>1){List<Source> matching=new ArrayList<>();String label=source.label.toLowerCase(Locale.ROOT);for(Source next:candidates)if(next.kind==SourceKind.HOST&&label.contains(resolver(next.url).name().toLowerCase(Locale.ROOT)))matching.add(next);if(matching.size()==1)candidates=matching;}
+    if(candidates.isEmpty())throw new Failure(Stage.RESOLVER,"INTERMEDIARY_NO_PUBLIC_LINK",host(page.url)+": nessun link HTTPS pubblico a host/media; eventuali script, API o verifiche interattive non gestiti");
+    if(candidates.size()!=1)throw new Failure(Stage.RESOLVER,"INTERMEDIARY_AMBIGUOUS",host(page.url)+": "+candidates.size()+" destinazioni pubbliche; impossibile associare con certezza il server selezionato");
+    Source next=candidates.get(0);emit(Stage.HOST_SEARCH,"PUBLIC_LINK",host(page.url)+" → "+host(next.url));return resolvePublic(next,visited,depth+1);
+   }
+   else {HostResolver finalResolver=resolver(page.url);if(!finalResolver.name().equals(r.name()))emit(Stage.RESOLVER,"REDISPATCH",finalResolver.name());
+    try{result=finalResolver.parse(page,source.referer);}catch(Failure e){emit(e.stage,e.code,e.getMessage());throw e;}}
+  }
+  return result;
  }
  public static String detectedMime(Page page){String text=page.text().trim();if(text.startsWith("\ufeff"))text=text.substring(1).trim();if(text.startsWith("#EXTM3U"))return HLS;if(text.matches("(?s)(?:<\\?xml[^>]*>\\s*)?<MPD(?:\\s|>).*"))return DASH;if(page.bytes.length>=12&&new String(page.bytes,4,4,StandardCharsets.US_ASCII).equals("ftyp"))return MP4;return "";}
  public static Map<String,String> attrs(String tag){Map<String,String> out=new HashMap<>();Matcher m=Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])(.*?)\\2",Pattern.DOTALL).matcher(tag);while(m.find())out.put(m.group(1).toLowerCase(Locale.ROOT),decode(m.group(3)));return out;}
@@ -125,7 +148,7 @@ public final class LabPipeline {
    }
   }return new ArrayList<>(all.values());
  }
- public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · estrazione non supportata";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
+ public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · ricerca destinazione pubblica";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
  public static boolean knownHost(String h){for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
  private abstract static class PublicResolver implements HostResolver {
@@ -176,7 +199,28 @@ public final class LabPipeline {
   public List<Source> sources(Page page){return declaredSources(page);}
  }
  public static final class Cb01Catalog extends HtmlCatalog {public String name(){return "CB01 · articoli";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>|<(?:div|section)\\b[^>]*class=[\"'][^\"']*\\bcard(?:-body)?\\b[^\"']*[\"'][^>]*>.*?(?=<(?:div|section)\\b[^>]*class=[\"'][^\"']*\\bcard\\b|$)");}public String search(String b,String q)throws Exception{return origin(b)+"/?s="+java.net.URLEncoder.encode(q,"UTF-8");}}
- public static final class AltaCatalog extends HtmlCatalog {public String name(){return "AltaDefinizione · schede DLE";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>|<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)[^\"']*[\"'][^>]*>.*?(?=<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)|$)");}public String search(String b,String q)throws Exception{return origin(b)+"/index.php?do=search&subaction=search&story="+java.net.URLEncoder.encode(q,"UTF-8");}}
+ public static final class AltaCatalog extends HtmlCatalog {
+  public String name(){return "AltaDefinizione · locandine e schede DLE";}
+  Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>|<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)[^\"']*[\"'][^>]*>.*?(?=<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)|$)");}
+  public List<Title> titles(Page page){
+   LinkedHashMap<String,Title> out=new LinkedHashMap<>();
+   // Current public layout: poster anchors carry data-title/data-id; hero logos are not posters.
+   for(int pass=0;pass<2;pass++){
+    Matcher anchors=Pattern.compile("(?is)<a\\b([^>]*)>(.*?)</a\\s*>").matcher(page.text());
+    while(anchors.find()&&out.size()<100){Map<String,String> a=attrs(anchors.group(1));if(pass==0&&!a.containsKey("data-title"))continue;
+     String url=absolute(page.url,a.getOrDefault("href",""));if(url.isEmpty()||!host(url).equals(host(page.url)))continue;
+     if(!URI.create(url).getPath().matches(".*/[0-9]+-[^/]+\\.html"))continue;
+     Matcher images=Pattern.compile("(?is)<img\\b[^>]*>").matcher(anchors.group(2));if(!images.find())continue;Map<String,String> image=attrs(images.group());
+     String poster=absolute(page.url,first(image,"data-src","data-original","src"));
+     String title=first(a,"data-title");if(title.isEmpty())title=first(image,"alt","title");
+     String lower=poster.toLowerCase(Locale.ROOT);if(poster.isEmpty()||title.length()<2||lower.contains("/logo")||lower.contains("/original/")||lower.contains("/w780/")||lower.contains("/w1280/"))continue;
+     out.putIfAbsent(url,new Title(decode(title),poster,url));
+    }
+   }
+   if(out.isEmpty())return super.titles(page);return new ArrayList<>(out.values());
+  }
+  public String search(String b,String q)throws Exception{return origin(b)+"/archivio?search="+java.net.URLEncoder.encode(q,"UTF-8");}
+ }
  public static final class WordpressCatalog extends HtmlCatalog {public String name(){return "WordPress · articoli";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>");}public String search(String b,String q)throws Exception{return origin(b)+"/?s="+java.net.URLEncoder.encode(q,"UTF-8");}}
- public static final class DleCatalog extends HtmlCatalog {public String name(){return "DLE · shortstory";}Pattern blocks(){return new AltaCatalog().blocks();}public String search(String b,String q)throws Exception{return new AltaCatalog().search(b,q);}}
+ public static final class DleCatalog extends HtmlCatalog {public String name(){return "DLE · shortstory";}Pattern blocks(){return new AltaCatalog().blocks();}public String search(String b,String q)throws Exception{return origin(b)+"/index.php?do=search&subaction=search&story="+java.net.URLEncoder.encode(q,"UTF-8");}}
 }

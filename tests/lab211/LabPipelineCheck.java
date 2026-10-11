@@ -66,7 +66,7 @@ public final class LabPipelineCheck {
   String wrappers="<a href='https://stayonline.example/l/x'>MixDrop HD</a><a href='https://uprot.net/msf/id'>MaxStream</a>";
   List<LabPipeline.Source> links=LabPipeline.declaredSources(page(base,wrappers));
   check(links.size()==2,"public intermediary links not discarded");check(links.get(0).kind==LabPipeline.SourceKind.INTERMEDIARY,"intermediary status");
-  check(links.get(0).label.equals("MixDrop HD"),"anchor label preserved");failure("INTERMEDIARY_UNSUPPORTED",()->pipeline.resolve(links.get(0)));
+  check(links.get(0).label.equals("MixDrop HD"),"anchor label preserved");pages.put(links.get(0).url,page(links.get(0).url,"<h1>Continua</h1>"));failure("INTERMEDIARY_NO_PUBLIC_LINK",()->pipeline.resolve(links.get(0)));
   check(LabPipeline.declaredSources(page(base,"<button data-url='https://mixdrop.si/e/x'>MixDrop</button>")).size()==1,"data-url source");
   check(LabPipeline.declaredSources(page(base,"<iframe src='about:blank' data-src='https://supervideo.tv/embed-x.html'></iframe>")).get(0).kind==LabPipeline.SourceKind.HOST,"lazy iframe source");
   check(LabPipeline.declaredSources(page(base,"<iframe data-src='' src='https://vidoza.net/x'></iframe>")).size()==1,"empty lazy src falls back");
@@ -75,6 +75,40 @@ public final class LabPipelineCheck {
   check(new LabPipeline.Source("https://youtube.com.evil.example/x","Player",base).kind==LabPipeline.SourceKind.PAGE,"platform matching uses exact domain suffix");
   pages.put(detail,page(detail,candidatePage));failure("TRAILER_ONLY",()->pipeline.sources(adapter,titles.get(0)));
   check(LabPipeline.declaredSources(page(base,"<a title='Film - Player' href='https://external.example/page'>Apri</a>")).size()==1,"explicit player page link");
-  System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures only.");
+  // Public wrapper traversal must reach the host resolver and verify actual media bytes.
+  String wrapper=links.get(0).url;
+  pages.put(wrapper,page(wrapper,"<a href='"+host+"'>MixDrop</a><iframe src='https://ads.example/frame'></iframe>"));
+  pages.put(host,page(host,"MDCore.wurl='"+stream+"';"));
+  check(pipeline.resolve(links.get(0)).url.equals(stream),"wrapper -> MixDrop -> MP4 body verified");
+  check(stages.contains("HOST_SEARCH:PUBLIC_LINK"),"public intermediate phase logged");
+  pages.put(wrapper,page(wrapper,"<meta http-equiv='refresh' content='0; URL="+host+"'>"));
+  check(pipeline.resolve(links.get(0)).url.equals(stream),"public HTML refresh traversal");
+  String max="https://maxstream.video/e/test";pages.put(max,page(max,"file:'"+stream+"'"));
+  pages.put(links.get(1).url,page(links.get(1).url,"<iframe src='"+max+"'></iframe>"));
+  check(pipeline.resolve(links.get(1)).host.equals("MaxStream"),"uprot -> MaxStream -> verified media");
+  pages.put(wrapper,page(wrapper,"<a href='"+max+"'>MaxStream</a><a href='"+host+"'>MixDrop</a>"));
+  check(pipeline.resolve(links.get(0)).host.equals("MixDrop"),"selected server disambiguates public links");
+  failure("INTERMEDIARY_AMBIGUOUS",()->pipeline.resolve(new LabPipeline.Source(wrapper,"Server",base)));
+  pages.put(wrapper,page(wrapper,"<a href='"+wrapper+"'>continua</a>"));failure("CHAIN_CYCLE",()->pipeline.resolve(links.get(0)));
+  for(int i=0;i<7;i++)pages.put("https://uprot.net/x/"+i,page("https://uprot.net/x/"+i,"<a href='https://uprot.net/x/"+(i+1)+"'>Next</a>"));
+  failure("CHAIN_LIMIT",()->pipeline.resolve(new LabPipeline.Source("https://uprot.net/x/0","MaxStream",base)));
+  pages.put(wrapper,page(wrapper,"<div class='h-captcha'></div><a href='"+host+"'>MixDrop</a>"));failure("ACCESS_CHALLENGE",()->pipeline.resolve(links.get(0)));
+  pages.put(wrapper,page(wrapper,"<a href='http://mixdrop.example/e/x'>MixDrop</a>"));failure("INTERMEDIARY_NO_PUBLIC_LINK",()->pipeline.resolve(links.get(0)));
+  pages.put(wrapper,new LabPipeline.Page(max,200,"text/html",("file:'"+stream+"'").getBytes(StandardCharsets.UTF_8)));
+  check(pipeline.resolve(links.get(0)).host.equals("MaxStream"),"HTTP redirected wrapper redispatches actual host");
+  // Shape observed in public AltaDefinizione DOM; fixtures contain no copied scripts.
+  String modern="<article><a href='/horror/33473-insidious-streaming.html'><img src='/logos/insidious.png' alt='Insidious'></a></article>"
+   +"<div class='movie-poster'><a data-title='Milonga' href='/drammatico/45172-milonga-streaming.html'><img loading='lazy' src='https://img.catalog.example/t/p/w300/poster.jpg' alt='Milonga'></a></div>"
+   +"<a href='/drammatico/45172-milonga-streaming.html'><img src='https://img.catalog.example/t/p/w780/backdrop.jpg' alt='Milonga'></a>"
+   +"<a data-title='Insidious' href='/horror/33473-insidious-streaming.html'><img data-src='/poster-insidious.jpg' src='/logos/insidious.png' alt='Insidious'></a>"
+   +"<a href='/menu'><img src='/icon.jpg' alt='Menu'></a>";
+  LabPipeline.AltaCatalog alta=new LabPipeline.AltaCatalog();List<LabPipeline.Title> modernTitles=alta.titles(page(base,modern));
+  check(modernTitles.size()==2,"modern Alta cards instead of six hero articles");
+  check(modernTitles.get(0).name.equals("Milonga")&&modernTitles.get(0).poster.contains("/w300/"),"poster anchor title and actual vertical image");
+  check(modernTitles.get(1).poster.equals(base+"poster-insidious.jpg"),"lazy poster takes precedence over logo");
+  check(alta.search(base,"film prova").equals(base+"archivio?search=film+prova"),"observed modern Alta search path");
+  String searchUrl=alta.search(base,"Milonga");pages.put(searchUrl,page(searchUrl,modern));
+  check(pipeline.catalog(alta,base,"Milonga").size()==1,"search excludes unrelated homepage cards");
+  System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }
