@@ -48,9 +48,16 @@ final class VodSource {
  }
  private static String optionalField(String block,String key){Matcher m=Pattern.compile("['\"]?"+key+"['\"]?\\s*:\\s*['\"]([^'\"]*)['\"]").matcher(block);return m.find()?m.group(1):"";}
  private static String field(String block,String key)throws Exception{String v=optionalField(block,key);if(v.isEmpty())throw new IOException("Parametro video assente: "+key);return v;}
+ static final class StageError extends IOException {
+  final String stage;
+  StageError(String stage,Exception original){super(stage+" · "+VodNetwork.error(original),original);this.stage=stage;}
+ }
+ private static String step(String stage,String url,String referer,Fetcher fetcher)throws Exception{
+  try{return fetcher.get(url,referer);}catch(Exception error){throw new StageError(stage,error);}
+ }
  static Stream resolve(String home,String id,String episode,Fetcher f)throws Exception{
   if(!id.matches("[0-9]+")||(!episode.isEmpty()&&!episode.matches("[0-9]+")))throw new IOException("Titolo non valido");String watch=home+"/it/watch/"+id+(episode.isEmpty()?"":"?e="+episode);
-  JSONObject p=props(f.get(fresh(watch),home+"/"));if(p.optBoolean("redirectToLogin"))throw new IOException("Questa fonte richiede accesso sul sito");String outer=p.optString("embedUrl","");if(outer.isEmpty())throw new IOException("Video non disponibile");String embed=iframe(f.get(fresh(outer),watch),outer);String html=f.get(embed,outer);String url=playlist(html);
-  String manifest=f.get(url,embed);if(!manifest.trim().startsWith("#EXTM3U"))throw new IOException("Playlist non disponibile");return new Stream(url,embed);
+  JSONObject p=props(step("Pagina riproduzione",fresh(watch),home+"/",f));if(p.optBoolean("redirectToLogin"))throw new IOException("Questa fonte richiede accesso sul sito");String outer=p.optString("embedUrl","");if(outer.isEmpty())throw new IOException("Video non disponibile");String embed=iframe(step("Pagina player",fresh(outer),watch,f),outer);String html=step("Iframe video",embed,outer,f);String url=playlist(html);
+  String manifest=step("Playlist HLS",url,embed,f);if(!manifest.trim().startsWith("#EXTM3U"))throw new IOException("Playlist non disponibile");return new Stream(url,embed);
  }
 }
