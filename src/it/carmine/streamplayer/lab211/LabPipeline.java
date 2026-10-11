@@ -43,9 +43,10 @@ public final class LabPipeline {
   public Subtitle(String u,String l,String n,String m){url=u;language=l;label=n;mime=m;}
  }
  public static final class Media {
-  public final String url,mime,referer,host;
+  public final String url,mime,referer,host,refreshId;
   public final List<Subtitle> subtitles;
-  public Media(String u,String m,String r,String h,List<Subtitle> s){url=u;mime=m;referer=r;host=h;subtitles=Collections.unmodifiableList(new ArrayList<>(s));}
+  public Media(String u,String m,String r,String h,List<Subtitle> s){this(u,m,r,h,s,"");}
+  public Media(String u,String m,String r,String h,List<Subtitle> s,String id){url=u;mime=m;referer=r;host=h;refreshId=id;subtitles=Collections.unmodifiableList(new ArrayList<>(s));}
  }
  public interface CatalogAdapter {
   String name(); String search(String base,String query)throws Exception;
@@ -58,7 +59,7 @@ public final class LabPipeline {
  public static final String HLS="application/x-mpegURL",DASH="application/dash+xml",MP4="video/mp4";
  private final Transport transport;private final Observer observer;
  private final List<HostResolver> resolvers;
- public LabPipeline(Transport t,Observer o){transport=t;observer=o;resolvers=Arrays.asList(new MixDrop(),new MaxStream(),new Voe(),new StreamTape(),new DoodStream(),new SuperVideo(),new Vidoza(),new Html5());}
+ public LabPipeline(Transport t,Observer o){transport=t;observer=o;resolvers=Arrays.asList(new MixDrop(),new MaxStream(),new VidXGo(),new Voe(),new StreamTape(),new DoodStream(),new SuperVideo(),new Vidoza(),new Html5());}
  private void emit(Stage s,String c,String d){if(observer!=null)observer.event(s,c,d);}
  public static URI https(String raw)throws Failure {
   try{URI u=new URI(raw);String h=u.getHost();if(!"https".equalsIgnoreCase(u.getScheme())||h==null||u.getUserInfo()!=null||u.getFragment()!=null||(u.getPort()!=-1&&u.getPort()!=443)||h.equalsIgnoreCase("localhost")||h.endsWith(".local")||h.contains(":")||h.matches("[0-9.]+"))throw new Exception();return u;}
@@ -83,7 +84,9 @@ public final class LabPipeline {
   return page;
  }
  public List<Title> catalog(CatalogAdapter adapter,String base,String query)throws Exception {
-  emit(Stage.CATALOG,"ADAPTER",adapter.name());Page page=fetch(query.isEmpty()?base:adapter.search(base,query),base,false,Stage.CATALOG);
+  emit(Stage.CATALOG,"ADAPTER",adapter.name());String route=query.isEmpty()?base:adapter.search(base,query);
+  if(adapter instanceof AltaCatalog&&query.isEmpty()&&(https(base).getPath().isEmpty()||https(base).getPath().equals("/")))route=origin(base)+"/film";
+  Page page;try{page=fetch(route,base,false,Stage.CATALOG);}catch(Failure e){if(!(adapter instanceof AltaCatalog)||!e.code.equals("HTTP_404")||route.equals(base))throw e;emit(Stage.CATALOG,"LAYOUT_ROUTE_FALLBACK","Percorso aggiornato assente (404); percorso precedente");page=fetch(query.isEmpty()?base:origin(base)+"/archivio?search="+java.net.URLEncoder.encode(query,"UTF-8"),base,false,Stage.CATALOG);}
   List<Title> titles=adapter.titles(page);
   if(adapter instanceof AltaCatalog&&!query.isEmpty()){List<Title> matching=new ArrayList<>();for(Title title:titles)if(title.name.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT)))matching.add(title);titles=matching;}
   emit(Stage.CATALOG,"TITLES",titles.size()+" locandine");
@@ -104,7 +107,7 @@ public final class LabPipeline {
   emit(Stage.SOURCE,"DECLARED",result.host+" · "+result.mime);Page media=fetch(result.url,result.referer,true,Stage.SOURCE);
   String detected=detectedMime(media);
   if(detected.isEmpty())throw new Failure(Stage.SOURCE,"NOT_MEDIA","La risposta non contiene un manifest HLS/DASH o un file MP4 riconoscibile");
-  emit(Stage.SOURCE,"VERIFIED",detected+" · "+host(media.url));return new Media(media.url,detected,result.referer,result.host,result.subtitles);
+  emit(Stage.SOURCE,"VERIFIED",detected+" · "+host(media.url));return new Media(media.url,detected,result.referer,result.host,result.subtitles,result.refreshId);
  }
  private Media resolvePublic(Source source,Set<String> visited,int depth)throws Exception {
   if(depth>5)throw new Failure(Stage.RESOLVER,"CHAIN_LIMIT","Superati cinque passaggi pubblici verso il video");
@@ -247,7 +250,7 @@ public final class LabPipeline {
   }return new ArrayList<>(all.values());
  }
  public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · ricerca destinazione pubblica";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
- public static boolean knownHost(String h){if(mixAlias(h)||maxAlias(h))return true;for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
+ public static boolean knownHost(String h){if(mixAlias(h)||maxAlias(h)||h.equalsIgnoreCase("v.vidxgo.co"))return true;for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
  private static boolean mixAlias(String h){return h.equalsIgnoreCase("mxdrop.top")||h.equalsIgnoreCase("www.mxdrop.top")||h.equalsIgnoreCase("m1xdrop.net")||h.equalsIgnoreCase("www.m1xdrop.net");}
  private static boolean maxAlias(String h){return h.equalsIgnoreCase("maxsun623.site")||h.equalsIgnoreCase("www.maxsun623.site");}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
@@ -277,9 +280,50 @@ public final class LabPipeline {
   }
   String[] fields(){return new String[]{"[\"']?(?:file|src)[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+\\.(?:m3u8|mpd|mp4)(?:\\?[^\"'\\r\\n]*)?)[\"']"};}
   public Media parse(Page page,String referer)throws Exception {
+   Matcher hls=Pattern.compile("(?is)<script\\b([^>]*)>(.*?)</script\\s*>").matcher(page.text());
+   while(hls.find())if("m3u8".equals(attrs(hls.group(1)).get("id"))){Matcher url=Pattern.compile("https://[^\\s\"'<>#]+\\.m3u8(?:\\?[^\\s\"'<>#]*)?",Pattern.CASE_INSENSITIVE).matcher(hls.group(2));if(url.find())return new Media(https(decode(url.group())).toString(),HLS,page.url,name(),tracks(page));}
    Matcher scripts=Pattern.compile("(?is)<script\\b([^>]*)>\\s*(https://[^<\\s]{1,8192})\\s*</script\\s*>").matcher(page.text());
    while(scripts.find())if("cccc".equals(attrs(scripts.group(1)).get("id"))){String url=absolute(page.url,scripts.group(2));if(!url.isEmpty())return new Media(url,mime(url),page.url,name(),tracks(page));}
    return super.parse(page,referer);
+  }
+ }
+ /** Reads only literal XOR/base64 declarations already delivered by the public embed. No eval. */
+ public static final class VidXGo extends PublicResolver {
+  public VidXGo(){super("vidxgo","VidXGo");}public boolean matches(URI u){return "v.vidxgo.co".equalsIgnoreCase(u.getHost());}String[] fields(){return new String[0];}
+  public Media parse(Page page,String referer)throws Exception {
+   Matcher wrappers=Pattern.compile("var\\s+[A-Za-z_$][\\w$]*\\s*=\\s*(['\"])([^'\"]{1,128})\\1\\s*,\\s*d\\s*=\\s*atob\\(\\s*(['\"])([A-Za-z0-9+/=]{1,2800000})\\3\\s*\\)").matcher(page.text());
+   Set<String> urls=new LinkedHashSet<>();int count=0;
+   while(wrappers.find()){
+    if(++count>30)throw new Failure(Stage.RESOLVER,"VIDXGO_SCRIPT_LIMIT","VidXGo: troppi script dichiarati");
+    byte[] bytes;try{bytes=Base64.getDecoder().decode(wrappers.group(4));}catch(Exception e){throw new Failure(Stage.RESOLVER,"VIDXGO_SCRIPT_FORMAT","VidXGo: dichiarazione base64 non valida");}
+    if(bytes.length>2*1024*1024)throw new Failure(Stage.RESOLVER,"VIDXGO_SCRIPT_LIMIT","VidXGo: script oltre il limite");String key=wrappers.group(2);
+    for(int i=0;i<bytes.length;i++)bytes[i]=(byte)((bytes[i]&255)^key.charAt(i%key.length()));
+    String decoded=new String(bytes,StandardCharsets.UTF_8);Matcher media=Pattern.compile("(['\"])(https:(?:\\\\/|/){2}[^'\"\\s<>]+?\\.m3u8(?:\\?[^'\"\\s<>]*)?)\\1",Pattern.CASE_INSENSITIVE).matcher(decoded);
+    while(media.find()){String url=absolute(page.url,media.group(2));if(!url.isEmpty())urls.add(url);}
+   }
+   if(urls.size()>1)throw new Failure(Stage.RESOLVER,"VIDXGO_MEDIA_AMBIGUOUS","VidXGo: più playlist dichiarate; selezione non determinata");
+   if(urls.isEmpty()){if(count==0)return super.parse(page,referer);throw new Failure(Stage.RESOLVER,"VIDXGO_NO_HLS","VidXGo: nessuna playlist HLS nei dichiarati script pubblici");}
+   String id=https(page.url).getPath().replaceFirst("^/","").replaceFirst("/$","");if(!id.matches("(?:tt)?[0-9]{1,12}(?:/[0-9]{1,3}/[0-9]{1,4})?"))throw new Failure(Stage.RESOLVER,"VIDXGO_REFRESH_ID","VidXGo: identificativo per rinnovo non valido");
+   return new Media(urls.iterator().next(),HLS,"https://v.vidxgo.co",name(),tracks(page),id);
+  }
+ }
+ /** Restricts token replacement to the original CDN directory; keeps unrelated query parameters. */
+ public static final class VidXTokens {
+  private final URI initial;private final String directory;private final Map<String,String> tokens=new LinkedHashMap<>();public long due;
+  public VidXTokens(String url,long now)throws Exception {initial=https(url);String path=initial.getRawPath();directory=path.substring(0,path.lastIndexOf('/')+1);Map<String,String> query=query(initial);for(String key:Arrays.asList("t","e","b"))if(query.containsKey(key))tokens.put(key,query.get(key));due=next(query.get("e"),now);}
+  private static Map<String,String> query(URI uri)throws Exception {Map<String,String> out=new LinkedHashMap<>();if(uri.getRawQuery()!=null)for(String pair:uri.getRawQuery().split("&")){String[] kv=pair.split("=",2);String key=java.net.URLDecoder.decode(kv[0],"UTF-8"),value=kv.length==2?java.net.URLDecoder.decode(kv[1],"UTF-8"):"";if(out.put(key,value)!=null)throw new Exception("VIDXGO_QUERY_DUPLICATE");}return out;}
+  private static long expiry(String raw)throws Exception{long value=Long.parseLong(raw);if(value<100000000000L)value=Math.multiplyExact(value,1000);return value;}
+  private static long next(String raw,long now){try{return Math.max(now,expiry(raw)-30000);}catch(Exception e){return now+10000;}}
+  public boolean scoped(String url){try{URI uri=https(url);return initial.getHost().equalsIgnoreCase(uri.getHost())&&uri.getRawPath().startsWith(directory)&&!uri.getPath().matches("(?s).*(?:^|/)\\.\\.?(?:/|$).*");}catch(Exception e){return false;}}
+  public void update(String url,long now)throws Exception {
+   URI uri=https(url);if(!initial.getHost().equalsIgnoreCase(uri.getHost())||!initial.getRawPath().equals(uri.getRawPath()))throw new Exception("VIDXGO_REFRESH_SCOPE_CHANGED");Map<String,String> q=query(uri);
+   if(!q.containsKey("t")||q.get("t").isEmpty()||!q.containsKey("e"))throw new Exception("VIDXGO_REFRESH_TOKEN_MISSING");if(expiry(q.get("e"))<=now)throw new Exception("VIDXGO_REFRESH_EXPIRED");
+   tokens.clear();for(String key:Arrays.asList("t","e","b"))if(q.containsKey(key))tokens.put(key,q.get(key));due=next(q.get("e"),now);
+  }
+  public String rewrite(String url)throws Exception {
+   if(!scoped(url))return url;URI uri=https(url);query(uri);StringJoiner out=new StringJoiner("&");
+   if(uri.getRawQuery()!=null&&!uri.getRawQuery().isEmpty())for(String pair:uri.getRawQuery().split("&",-1)){String key=java.net.URLDecoder.decode(pair.split("=",2)[0],"UTF-8");if(!Arrays.asList("t","e","b").contains(key))out.add(pair);}
+   for(Map.Entry<String,String> entry:tokens.entrySet())out.add(java.net.URLEncoder.encode(entry.getKey(),"UTF-8")+"="+java.net.URLEncoder.encode(entry.getValue(),"UTF-8"));String query=out.toString();return uri.getScheme()+"://"+uri.getRawAuthority()+uri.getRawPath()+(query.isEmpty()?"":"?"+query);
   }
  }
  public static final class Voe extends PublicResolver {public Voe(){super("voe","VOE");}String prepare(String h){
@@ -316,6 +360,10 @@ public final class LabPipeline {
   Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>|<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)[^\"']*[\"'][^>]*>.*?(?=<div\\b[^>]*class=[\"'][^\"']*(?:shortstory|short-item|movie-item|box-film)|$)");}
   public List<Title> titles(Page page){
    LinkedHashMap<String,Title> out=new LinkedHashMap<>();
+   Matcher cards=Pattern.compile("(?is)<div\\b(?=[^>]*\\bdata-link\\s*=)([^>]{1,8192})>(.*?)(?=<div\\b[^>]*\\bdata-link\\s*=|$)").matcher(page.text());
+   while(cards.find()&&out.size()<100){Map<String,String> a=attrs(cards.group(1));if(!a.getOrDefault("class","").matches("(?s)(?:.*\\s)?movie(?:\\s.*)?"))continue;String url=absolute(page.url,a.getOrDefault("data-link","")),title=a.getOrDefault("data-title","");if(url.isEmpty()||!host(url).equals(host(page.url))||title.length()<2)continue;
+    String body=cards.group(2);if(body.length()>50000)body=body.substring(0,50000);Matcher image=Pattern.compile("(?is)<img\\b[^>]{0,8192}>").matcher(body);String poster="";while(image.find()){Map<String,String> img=attrs(image.group());if(!img.getOrDefault("class","").matches("(?s)(?:.*\\s)?layer-image(?:\\s.*)?"))continue;poster=absolute(page.url,first(img,"data-src","data-original","src"));break;}if(!poster.isEmpty())out.putIfAbsent(url,new Title(decode(title),poster,url));
+   }
    // Current public layout: poster anchors carry data-title/data-id; hero logos are not posters.
    for(int pass=0;pass<2;pass++){
     Matcher anchors=Pattern.compile("(?is)<a\\b([^>]*)>(.*?)</a\\s*>").matcher(page.text());
@@ -331,11 +379,16 @@ public final class LabPipeline {
    }
    if(out.isEmpty())return super.titles(page);return new ArrayList<>(out.values());
   }
-  public String search(String b,String q)throws Exception{return origin(b)+"/archivio?search="+java.net.URLEncoder.encode(q,"UTF-8");}
+  public String search(String b,String q)throws Exception{return origin(b)+"/search?q="+java.net.URLEncoder.encode(q,"UTF-8");}
   public List<Source> sources(Page page){
    List<Source> result=new ArrayList<>();Set<String> originRefs=new HashSet<>();Matcher frames=Pattern.compile("(?is)<iframe\\b[^>]*>").matcher(page.text());
    while(frames.find()){Map<String,String> a=attrs(frames.group());if(!"origin".equalsIgnoreCase(a.getOrDefault("referrerpolicy","")))continue;String u=absolute(page.url,first(a,"data-src","src"));if(!u.isEmpty())originRefs.add(u);}
-   for(Source source:declaredSources(page)){String ref=source.referer;if(originRefs.contains(source.url))try{ref=origin(page.url)+"/";}catch(Exception ignored){}result.add(new Source(source.url,source.label,ref));}return result;
+   Set<String> imdbIds=new LinkedHashSet<>();
+   Matcher declaredImdb=Pattern.compile("\\bvar\\s+imdb\\s*=\\s*['\"](?:tt)?([0-9]{7,12})['\"]").matcher(page.text());while(declaredImdb.find())imdbIds.add(declaredImdb.group(1));
+   for(Source source:declaredSources(page)){String ref=source.referer;if(originRefs.contains(source.url))try{ref=origin(page.url)+"/";}catch(Exception ignored){}result.add(new Source(source.url,source.label,ref));
+    if(source.kind!=SourceKind.TRAILER&&host(source.url).equals("v.vidxgo.co")){Matcher id=Pattern.compile("^/(?:tt)?([0-9]{7,12})/?$").matcher(URI.create(source.url).getPath());if(id.find())imdbIds.add(id.group(1));}
+   }
+   if(imdbIds.size()==1&&!URI.create(page.url).getPath().contains("/serie-tv/"))result.add(0,new Source("https://vixsrc.to/api/movie/tt"+imdbIds.iterator().next()+"?lang=it","Diretto · VixSrc · verifica disponibilità",page.url));return result;
   }
  }
  public static final class WordpressCatalog extends HtmlCatalog {public String name(){return "WordPress · articoli";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>");}public String search(String b,String q)throws Exception{return origin(b)+"/?s="+java.net.URLEncoder.encode(q,"UTF-8");}}

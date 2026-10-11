@@ -9,6 +9,8 @@ public final class LabPipelineCheck {
  static LabPipeline.Page page(String url,String html){return new LabPipeline.Page(url,200,"text/html",html.getBytes(StandardCharsets.UTF_8));}
  static void failure(String code,Work work)throws Exception{try{work.run();throw new AssertionError("Expected "+code);}catch(LabPipeline.Failure e){check(e.code.equals(code),e.code+" vs "+code);}}
  interface Work{void run()throws Exception;}
+ static String xorScript(String text){String key="a19f20ab";byte[] bytes=text.getBytes(StandardCharsets.UTF_8);for(int i=0;i<bytes.length;i++)bytes[i]=(byte)((bytes[i]&255)^key.charAt(i%key.length()));return "<script>(function(){var k='"+key+"',d=atob('"+Base64.getEncoder().encodeToString(bytes)+"');})();</script>";}
+ static void tokenFailure(String code,Work work)throws Exception {try{work.run();throw new AssertionError("Expected "+code);}catch(Exception e){check(code.equals(e.getMessage()),e.getMessage()+" vs "+code);}}
  public static void main(String[] args)throws Exception {
   Map<String,LabPipeline.Page> pages=new HashMap<>();List<String> stages=new ArrayList<>();
   String base="https://catalog.example/",detail=base+"film/test",host="https://mixdrop.example/e/abc",stream="https://cdn.example/movie.mp4?expires=123&token=fixture";
@@ -59,8 +61,8 @@ public final class LabPipelineCheck {
   String neagley="<iframe title='Serie - Trailer' src='https://v.vidxgo.co/x?content=trailer&amp;player=false'></iframe><iframe title='Serie - Player' src='https://v.vidxgo.co/x/1/1?se=0'></iframe>";
   LabPipeline.SourceReport split=new LabPipeline.SourceReport(LabPipeline.declaredSources(page(base,neagley)));
   check(split.trailers.size()==1&&split.sources.size()==1,"separate trailer and player");
-  check(split.sources.get(0).kind==LabPipeline.SourceKind.PAGE,"unknown page is unverified, not supported HTML5");
-  check(LabPipeline.sourceStatus(split.sources.get(0)).contains("da verificare"),"honest source status");
+  check(split.sources.get(0).kind==LabPipeline.SourceKind.HOST,"VidXGo dispatch has a dedicated parser; discovery is still unverified");
+  check(LabPipeline.sourceStatus(split.sources.get(0)).contains("da risolvere"),"host recognition does not claim resolved playback");
   String candidate=split.sources.get(0).url;pages.put(candidate,new LabPipeline.Page(candidate,403,"text/html",new byte[0]));
   failure("HTTP_403",()->pipeline.resolve(split.sources.get(0)));
   String wrappers="<a href='https://stayonline.example/l/x'>MixDrop HD</a><a href='https://uprot.net/msf/id'>MaxStream</a>";
@@ -106,7 +108,7 @@ public final class LabPipelineCheck {
   check(modernTitles.size()==2,"modern Alta cards instead of six hero articles");
   check(modernTitles.get(0).name.equals("Milonga")&&modernTitles.get(0).poster.contains("/w300/"),"poster anchor title and actual vertical image");
   check(modernTitles.get(1).poster.equals(base+"poster-insidious.jpg"),"lazy poster takes precedence over logo");
-  check(alta.search(base,"film prova").equals(base+"archivio?search=film+prova"),"observed modern Alta search path");
+  check(alta.search(base,"film prova").equals(base+"search?q=film+prova"),"updated Alta adapter search path");
   String searchUrl=alta.search(base,"Milonga");pages.put(searchUrl,page(searchUrl,modern));
   check(pipeline.catalog(alta,base,"Milonga").size()==1,"search excludes unrelated homepage cards");
   // Exact alias and /f/ -> /e/ shape observed on the user-provided public MixDrop link.
@@ -204,6 +206,52 @@ public final class LabPipelineCheck {
   List<LabPipeline.Source> fullPolicy=new LabPipeline.AltaCatalog().sources(page(altaDetail,"<iframe src='"+vidPublic+"'></iframe>"));check(fullPolicy.get(0).referer.equals(altaDetail),"existing full referrer unchanged when origin policy absent");
   pages.put(vidPublic,page(vidPublic,"<video src='"+aliasedMedia+"'></video>"));check(pipeline.resolve(policyReport.sources.get(0)).url.equals(aliasedMedia),"Alta source -> public HTML5 -> verified media input");
   pages.put(vidPublic,new LabPipeline.Page(vidPublic,403,"text/html","Access Denied - Stiamo lavorando, torniamo presto".getBytes(StandardCharsets.UTF_8)));failure("HTTP_403",()->pipeline.resolve(policyReport.sources.get(0)));
+  String maxHls="https://ms-ssd-011.host-cdn.net/hls/,llzeof6srmhnmttc2t54jn6vqcyorgdnn457d5xhm2jmzxxnnbw6r53p6mfa/7c5spcpuy044,.urlset/master.m3u8";
+  List<LabPipeline.Title> newAlta=new LabPipeline.AltaCatalog().titles(page(base,"<div class='movie featured' data-link='/thriller/45038-animals.html' data-title='Animals'><img class='layer-image' src='/poster.jpg'></div><div data-link='/title2' data-title='Secondo' class='movie'><img class='layer-image' data-src='/p2.jpg'></div>"));
+  check(newAlta.size()==2&&newAlta.get(0).poster.equals(base+"poster.jpg"),"Alta current movie/data-link catalog produces actual poster cards");
+  check(newAlta.get(1).url.equals(base+"title2"),"Alta data-link title identity retained independently of URL layout");
+  pages.put(base+"film",page(base+"film","<div class='movie' data-link='/thriller/45038-animals.html' data-title='Animals'><img class='layer-image' src='/poster.jpg'></div>"));check(pipeline.catalog(alta,base,"").get(0).name.equals("Animals"),"Alta root loads film catalog rather than promotional homepage");
+  pages.put(base+"film",new LabPipeline.Page(base+"film",404,"text/html",new byte[0]));check(pipeline.catalog(alta,base,"").size()==1,"404-only Alta route fallback retains previous catalog");
+  pages.put(base+"film",new LabPipeline.Page(base+"film",403,"text/html",new byte[0]));failure("HTTP_403",()->pipeline.catalog(alta,base,""));
+  pages.put(maxHls,new LabPipeline.Page(maxHls,200,LabPipeline.HLS,"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=900000\nquality/index.m3u8\n".getBytes(StandardCharsets.UTF_8)));
+  pages.put(maxFinal,page(maxFinal,"<script id='cccc'>"+aliasedMedia+"</script><script id='m3u8'>\""+maxHls+"\"</script>"));
+  check(pipeline.resolve(new LabPipeline.Source(maxFinal,"MaxStream",base)).url.equals(maxHls),"MaxStream selects actual HLS shape ahead of MP4 and preserves comma/urlset path");
+  check(pipeline.resolve(new LabPipeline.Source(maxFinal,"MaxStream",base)).mime.equals(LabPipeline.HLS),"MaxStream HLS verified through media bytes");
+  String vid="https://v.vidxgo.co/31049299",vidMedia="https://cdn.example/hls/31049299/master.m3u8?t=fixture&e=1999999999000&b=873";
+  String numericAlta="<iframe src='"+vid+"' referrerpolicy='origin' title='Animals - Player'></iframe><iframe src='"+vid+"?content=trailer' title='Animals - Trailer'></iframe>";
+  LabPipeline.SourceReport numericReport=new LabPipeline.SourceReport(new LabPipeline.AltaCatalog().sources(page(altaDetail,numericAlta)));
+  check(numericReport.sources.size()==2&&numericReport.trailers.size()==1,"Alta exposes exact IMDb-derived VixSrc candidate and VidXGo while excluding trailer");
+  check(numericReport.sources.get(0).url.equals("https://vixsrc.to/api/movie/tt31049299?lang=it"),"VixSrc candidate derives exact IMDb identity, not a guessed title match or cached token");
+  check(new LabPipeline.AltaCatalog().sources(page(altaDetail,"<iframe src='"+vid+"?content=trailer'></iframe>")).size()==1,"trailer alone does not create a VixSrc movie candidate");
+  check(new LabPipeline.AltaCatalog().sources(page(altaDetail,"<script>var imdb='tt1234567';</script>"+numericAlta)).size()==2,"conflicting IMDb identities suppress the derived VixSrc candidate instead of guessing");
+  pages.put(vid,page(vid,xorScript("window.PLAYER_OPTS={autoplay:true};")+xorScript("player.currentSrc=\""+vidMedia+"\";")));
+  pages.put(vidMedia,new LabPipeline.Page(vidMedia,200,LabPipeline.HLS,"#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,LANGUAGE=\"it\",URI=\"audio/index.m3u8\"\n".getBytes(StandardCharsets.UTF_8)));
+  LabPipeline.Media resolvedVid=pipeline.resolve(numericReport.sources.get(1));
+  check(resolvedVid.url.equals(vidMedia)&&resolvedVid.mime.equals(LabPipeline.HLS),"Alta -> VidXGo XOR declaration -> verified HLS");
+  check(resolvedVid.refreshId.equals("31049299")&&resolvedVid.referer.equals("https://v.vidxgo.co"),"VidXGo renewal identity and media referer survive source verification");
+  check(pipeline.resolver(vid).name().equals("VidXGo"),"VidXGo independent host dispatch");
+  check(pipeline.resolver("https://v.vidxgo.co.evil.example/31049299").name().equals("HTML5 pubblico"),"VidXGo resolver does not match lookalike hosts");
+  pages.put(vid,page(vid,xorScript("source='"+vidMedia.replace("/","\\/")+"';")));check(pipeline.resolve(numericReport.sources.get(1)).url.equals(vidMedia),"VidXGo escaped slashes preserve complete signed query");
+  pages.put(vid,page(vid,xorScript("hls='"+vidMedia+"';hls='https://other.example/other.m3u8';")));failure("VIDXGO_MEDIA_AMBIGUOUS",()->pipeline.resolve(numericReport.sources.get(1)));
+  pages.put(vid,page(vid,xorScript("window.PLAYER_OPTS={autoplay:true};")));failure("VIDXGO_NO_HLS",()->pipeline.resolve(numericReport.sources.get(1)));
+  pages.put(vid,new LabPipeline.Page(vid,403,"text/html",new byte[0]));failure("HTTP_403",()->pipeline.resolve(numericReport.sources.get(1)));
+  long now=1791730000000L;LabPipeline.VidXTokens tokenState=new LabPipeline.VidXTokens("https://cdn.example/hls/31049299/master.m3u8?t=old&e="+(now+60000)+"&b=873",now);
+  check(tokenState.due==now+30000,"token renewal scheduled before expiry using milliseconds");
+  tokenState.update("https://cdn.example/hls/31049299/master.m3u8?t=new%2Ftoken&e="+(now+120000),now);
+  String rewritten=tokenState.rewrite("https://cdn.example/hls/31049299/audio/index.m3u8?quality=it&t=old&b=873");
+  check(rewritten.contains("quality=it")&&rewritten.contains("t=new%2Ftoken")&&!rewritten.contains("b=873"),"renewal rewrites segment token, preserves audio/quality query and removes stale burn flag");
+  check(tokenState.rewrite("https://other.example/hls/31049299/seg.ts").equals("https://other.example/hls/31049299/seg.ts"),"tokens never leak to another CDN");
+  check(!tokenState.scoped("https://cdn.example/hls/other/seg.ts"),"tokens never apply to another title");
+  check(!tokenState.scoped("http://cdn.example/hls/31049299/seg.ts"),"token scope forbids HTTP downgrade");
+  check(!tokenState.scoped("https://cdn.example/hls/31049299/../other/seg.ts"),"token scope rejects traversal to another title");
+  check(!tokenState.scoped("https://cdn.example/hls/31049299/%2E%2E/other/seg.ts"),"token scope rejects encoded traversal");
+  check(tokenState.rewrite("https://cdn.example/hls/31049299/audio.m3u8?quality=a%20b&label=x+y").contains("quality=a%20b&label=x+y"),"renewal preserves unrelated raw query bytes, including percent escapes and plus signs");
+  tokenFailure("VIDXGO_REFRESH_SCOPE_CHANGED",()->tokenState.update("https://other.example/hls/31049299/master.m3u8?t=x&e="+(now+90000),now));
+  tokenFailure("VIDXGO_REFRESH_SCOPE_CHANGED",()->tokenState.update("https://cdn.example/hls/other/master.m3u8?t=x&e="+(now+90000),now));
+  tokenFailure("VIDXGO_REFRESH_EXPIRED",()->tokenState.update("https://cdn.example/hls/31049299/master.m3u8?t=x&e="+(now-1),now));
+  tokenFailure("VIDXGO_REFRESH_TOKEN_MISSING",()->tokenState.update("https://cdn.example/hls/31049299/master.m3u8?e="+(now+90000),now));
+  tokenFailure("VIDXGO_QUERY_DUPLICATE",()->tokenState.update("https://cdn.example/hls/31049299/master.m3u8?t=x&t=y&e="+(now+90000),now));
+  check(tokenState.rewrite("https://cdn.example/hls/31049299/seg.ts").contains("t=new%2Ftoken"),"failed renewal retains prior state without accepting invalid token");
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }

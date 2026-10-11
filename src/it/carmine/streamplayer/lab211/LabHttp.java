@@ -30,6 +30,8 @@ public final class LabHttp implements LabPipeline.Transport {
    LabPipeline.https(url);Request.Builder request=new Request.Builder().url(url).header("User-Agent","Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").header("Accept",media?"*/*":"text/html,application/json").header("Accept-Language","it-IT,it;q=0.9");
    if(referer!=null&&!referer.isEmpty()){LabPipeline.https(referer);request.header("Referer",referer);}
    if(media)request.header("Range","bytes=0-65535");
+   if(media&&"https://v.vidxgo.co".equals(referer))request.header("Sec-Fetch-Dest","empty").header("Sec-Fetch-Mode","cors").header("Sec-Fetch-Site","cross-site");
+   else if(LabPipeline.host(url).equals("v.vidxgo.co"))request.header("Sec-Fetch-Dest","iframe");
    try(Response response=client.newCall(request.build()).execute()){
     int status=response.code();if(status==301||status==302||status==303||status==307||status==308){String location=response.header("Location","");String next=LabPipeline.absolute(url,location);if(next.isEmpty()||location.isEmpty())throw new LabPipeline.Failure(LabPipeline.Stage.SOURCE,"UNSAFE_REDIRECT","Redirect non HTTPS o non valido");url=next;continue;}
     int limit=media?65536:2*1024*1024;ByteArrayOutputStream out=new ByteArrayOutputStream();
