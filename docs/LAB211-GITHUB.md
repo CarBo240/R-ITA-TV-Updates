@@ -2,11 +2,11 @@
 
 ## ZIP
 
-Lo ZIP dei soli file modificati contiene nuovi file e sostituzioni rispetto alla 2.1.15. Estrarre nella root del repository mantenendo le directory. Lo ZIP completo conserva anche tutte le copie root già presenti nell'archivio originale; Gradle compila `src`, come prima. Non usare l'APK Veezie come dipendenza.
+Lo ZIP dei soli file modificati contiene nuovi file e sostituzioni rispetto alla 2.1.16. Estrarre nella root del repository mantenendo le directory. Lo ZIP completo conserva anche tutte le copie root già presenti nell'archivio originale; Gradle compila `src`, come prima. Non usare l'APK Veezie come dipendenza.
 
 ## Android Studio / GitHub
 
-`local.properties` non contiene più il percorso SDK assoluto di una vecchia sessione; Android Studio lo configura localmente e GitHub usa ANDROID_HOME. Il workflow build-apk conserva firma e varianti originali, aggiunge i 137 controlli LAB prima della build e usa il nome artifact 2.1.16 LAB.
+`local.properties` non contiene più il percorso SDK assoluto di una vecchia sessione; Android Studio lo configura localmente e GitHub usa ANDROID_HOME. Il workflow build-apk conserva firma e varianti originali, aggiunge i 149 controlli LAB prima della build e usa il nome artifact 2.1.17 LAB.
 
 Aprire il progetto con JDK 17, Android SDK 36 e Build Tools 35.0.0. Conservare le dipendenze e le esclusioni originali. È necessaria la connettività verso Google Maven e Maven Central.
 
@@ -17,7 +17,7 @@ gradle assembleRelease
 
 Il progetto allegato non contiene Gradle wrapper né chiave di firma. `assembleRelease` mantiene il tipo release non firmato della base. Firmare con la **stessa chiave usata per la propria app** prima di installare come aggiornamento; non sostituire la firma con una chiave nuova. I parametri debug originali richiedono `RITA_KEYSTORE_FILE`, `RITA_KEYSTORE_PASSWORD`, `RITA_KEY_ALIAS`, `RITA_KEY_PASSWORD` se si vuole produrre un APK debug firmato. Nessuna credenziale è inclusa.
 
-La versione è 2.1.16, codice 74, package originale `it.carmine.streamplayer`. Nessuna pubblicazione GitHub o installazione è stata effettuata qui.
+La versione è 2.1.17, codice 75, package originale `it.carmine.streamplayer`. Nessuna pubblicazione GitHub o installazione è stata effettuata qui.
 
 ## Test indipendente dal SDK
 
@@ -39,4 +39,4 @@ Sul dispositivo verificare l'intera sequenza: locandine → scheda → fonti →
 
 Limitazioni: prima pagina/catalogo fino a 100 titoli, nessuna paginazione automatica; serie senza un adattatore episodio dedicato elencano i link dichiarati nella scheda; nessun login nel nuovo client; cookie/challenge, wrapper dinamici, DRM o API riservate non sono risolti. Gli intermediari generici possono essere attraversati soltanto quando espongono un collegamento pubblico HTTPS univoco o un redirect ordinario. Streaming Community e VixSrc continuano nelle attività precedenti.
 
-La 2.1.16 aggiunge l'alias esatto m1xdrop.net al resolver MixDrop effettivo, correggendo il rifiuto della destinazione StayOnline mostrato nel nuovo screenshot. Consultare CHANGELOG-2.1.16-LAB.md e docs/LAB216-VERIFICA.md. Le correzioni 2.1.15 e Prova URL host sono conservate.
+La 2.1.17 aggiunge il redirect Uprot con HEAD, la lettura degli script compattati successivi MaxStream e il referer origin dichiarato negli iframe AltaDefinizione. Consultare CHANGELOG-2.1.17-LAB.md e docs/LAB217-VERIFICA.md: MaxStream reale e VidXGo non sono ancora certificati. MixDrop della 2.1.16, confermato funzionante dall'utente, è conservato.

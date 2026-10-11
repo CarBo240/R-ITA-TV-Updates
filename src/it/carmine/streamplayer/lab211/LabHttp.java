@@ -10,6 +10,20 @@ public final class LabHttp implements LabPipeline.Transport {
  private final OkHttpClient client=new OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
   .followRedirects(false).followSslRedirects(false).connectTimeout(12,TimeUnit.SECONDS)
   .readTimeout(15,TimeUnit.SECONDS).callTimeout(25,TimeUnit.SECONDS).build();
+ public LabPipeline.Page head(String initial,String referer)throws Exception {
+  String url=initial;
+  for(int redirects=0;redirects<=4;redirects++){
+   LabPipeline.https(url);Request.Builder request=new Request.Builder().url(url).head().header("User-Agent","Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36");
+   if(referer!=null&&!referer.isEmpty()){LabPipeline.https(referer);request.header("Referer",referer);}
+   try(Response response=client.newCall(request.build()).execute()){
+    int status=response.code();if(status==301||status==302||status==303||status==307||status==308){String location=response.header("Location","");String next=LabPipeline.absolute(url,location);if(next.isEmpty()||location.isEmpty())throw new LabPipeline.Failure(LabPipeline.Stage.RESOLVER,"UNSAFE_REDIRECT","HEAD: redirect non HTTPS o non valido");url=next;continue;}
+    // A server explicitly rejecting HEAD may still support ordinary GET.
+    if(status==405||status==501)return null;
+    return new LabPipeline.Page(url,status,response.header("Content-Type",""),new byte[0],response.header("Refresh",""));
+   }
+  }
+  throw new LabPipeline.Failure(LabPipeline.Stage.RESOLVER,"REDIRECT_LIMIT","HEAD: superato limite di quattro redirect HTTPS");
+ }
  public LabPipeline.Page get(String initial,String referer,boolean media)throws Exception {
   String url=initial;
   for(int redirects=0;redirects<=4;redirects++){

@@ -180,6 +180,30 @@ public final class LabPipelineCheck {
   pages.put(m1,page(m1,"MDCore.wurl='"+aliasedMedia+"';"));check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).host.equals("MixDrop"),"m1 page without redirect extracts actual declaration and verifies media");
   pages.put(m1,page(m1,"No media"));failure("NO_PUBLIC_MEDIA",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
   pages.put(m1,new LabPipeline.Page(m1,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
+  String uprotHead="https://uprot.net/msf/test123",maxFinal="https://maxstream.video/video/test123";
+  List<String> headCalls=new ArrayList<>(),getCalls=new ArrayList<>();Map<String,LabPipeline.Page> heads=new HashMap<>();
+  heads.put(uprotHead,new LabPipeline.Page(maxFinal,200,"text/html",new byte[0]));
+  pages.put(maxFinal,page(maxFinal,"<video src='"+aliasedMedia+"'></video>"));
+  LabPipeline headPipeline=new LabPipeline(new LabPipeline.Transport(){
+   public LabPipeline.Page head(String url,String ref){headCalls.add(url);return heads.get(url);}
+   public LabPipeline.Page get(String url,String ref,boolean media){getCalls.add(url);if(!pages.containsKey(url))throw new AssertionError(url);return pages.get(url);}
+  },(s,c,d)->stages.add(s+":"+c));
+  check(headPipeline.resolve(new LabPipeline.Source(uprotHead,"MaxStream",base)).url.equals(aliasedMedia),"Uprot HEAD final URL -> actual MaxStream GET -> verified MP4");
+  check(headCalls.contains(uprotHead)&&!getCalls.contains(uprotHead)&&getCalls.contains(maxFinal),"HEAD dispatch preserves public final URL without a guessed conversion endpoint");
+  check(stages.contains("HOST_SEARCH:UPROT_HEAD_DESTINATION"),"HEAD destination diagnostics");
+  heads.put(uprotHead,new LabPipeline.Page(uprotHead,403,"text/html",new byte[0]));int beforeHeadRefusal=getCalls.size();failure("HTTP_403",()->headPipeline.resolve(new LabPipeline.Source(uprotHead,"MaxStream",base)));check(getCalls.size()==beforeHeadRefusal,"no GET fallback after HEAD access refusal");
+  heads.put(uprotHead,null);pages.put(uprotHead,page(uprotHead,"<a href='"+maxFinal+"'>MaxStream</a>"));check(headPipeline.resolve(new LabPipeline.Source(uprotHead,"MaxStream",base)).url.equals(aliasedMedia),"transport without HEAD falls back to ordinary public GET links");
+  String adPacker="<script>eval(function(p,a,c,k,e,d){return p;}('0.1=\"2://3/banner.js\";',4,4,'ad|src|https|ads.example'.split('|'),0,{}))</script>";
+  String videoPacker="<script>eval(function(p,a,c,k,e,d){return p;}('0:[{1:\"2://3/movie.4?token=fixture\"}];',5,5,'sources|src|https|cdn.example|mp4'.split('|'),0,{}))</script>";
+  pages.put(maxFinal,page(maxFinal,adPacker+videoPacker));check(pipeline.resolve(new LabPipeline.Source(maxFinal,"MaxStream",base)).url.equals(aliasedMedia),"MaxStream second packed script resolves media instead of advertising script URL");
+  String altaDetail="https://altadefinizionex.surf/thriller/123-title.html",vidPublic="https://v.vidxgo.co/test";
+  pages.put(altaDetail,page(altaDetail,"<iframe src='"+vidPublic+"' referrerpolicy='origin' title='Title - Player'></iframe><iframe src='"+vidPublic+"?content=trailer' referrerpolicy='origin' title='Title - Trailer'></iframe>"));
+  LabPipeline.SourceReport policyReport=pipeline.sourceReport(new LabPipeline.AltaCatalog(),new LabPipeline.Title("Title","",altaDetail));
+  check(policyReport.sources.size()==1&&policyReport.trailers.size()==1,"Alta origin policy retains movie/trailer separation");
+  check(policyReport.sources.get(0).referer.equals("https://altadefinizionex.surf/"),"origin referrer matches actual iframe policy");
+  List<LabPipeline.Source> fullPolicy=new LabPipeline.AltaCatalog().sources(page(altaDetail,"<iframe src='"+vidPublic+"'></iframe>"));check(fullPolicy.get(0).referer.equals(altaDetail),"existing full referrer unchanged when origin policy absent");
+  pages.put(vidPublic,page(vidPublic,"<video src='"+aliasedMedia+"'></video>"));check(pipeline.resolve(policyReport.sources.get(0)).url.equals(aliasedMedia),"Alta source -> public HTML5 -> verified media input");
+  pages.put(vidPublic,new LabPipeline.Page(vidPublic,403,"text/html","Access Denied - Stiamo lavorando, torniamo presto".getBytes(StandardCharsets.UTF_8)));failure("HTTP_403",()->pipeline.resolve(policyReport.sources.get(0)));
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }

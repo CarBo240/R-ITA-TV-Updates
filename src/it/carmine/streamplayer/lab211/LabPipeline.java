@@ -11,6 +11,7 @@ public final class LabPipeline {
  public interface Observer { void event(Stage stage,String code,String detail); }
  public interface Transport {
   Page get(String url,String referer,boolean media)throws Exception;
+  default Page head(String url,String referer)throws Exception{return null;}
   default Page postForm(String url,Map<String,String> fields,String referer)throws Exception {throw new Failure(Stage.RESOLVER,"PUBLIC_API_UNAVAILABLE","Trasporto POST pubblico non disponibile");}
  }
  public static final class Failure extends Exception {
@@ -108,6 +109,15 @@ public final class LabPipeline {
  private Media resolvePublic(Source source,Set<String> visited,int depth)throws Exception {
   if(depth>5)throw new Failure(Stage.RESOLVER,"CHAIN_LIMIT","Superati cinque passaggi pubblici verso il video");
   if(!visited.add(source.url))throw new Failure(Stage.RESOLVER,"CHAIN_CYCLE","Collegamento circolare: "+host(source.url));
+  if(isUprotVideo(source.url)){
+   emit(Stage.RESOLVER,"UPROT_PUBLIC_HEAD","Uprot · verifica redirect HTTPS con HEAD, senza conversione API");
+   Page destination;try{destination=transport.head(source.url,source.referer);}catch(Failure e){throw new Failure(Stage.RESOLVER,e.code,e.getMessage());}catch(Exception e){throw new Failure(Stage.RESOLVER,"NETWORK","HEAD Uprot: "+e.getClass().getSimpleName());}
+   if(destination!=null){checked(destination,false,Stage.RESOLVER);
+    if(!destination.url.equals(source.url)&&(knownHost(host(destination.url))||!mime(destination.url).isEmpty())){
+     emit(Stage.HOST_SEARCH,"UPROT_HEAD_DESTINATION",host(source.url)+" → "+host(destination.url));return resolvePublic(new Source(destination.url,source.label,source.url),visited,depth+1);
+    }
+   }
+  }
   String direct=mime(source.url);Media result;
   if(!direct.isEmpty()){emit(Stage.RESOLVER,"DIRECT",direct);result=new Media(source.url,direct,source.referer,"Diretto",Collections.emptyList());}
   else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",source.kind==SourceKind.INTERMEDIARY?"Collegamenti pubblici · "+host(source.url):r.name());Page page=fetch(source.url,source.referer,false,Stage.RESOLVER);
@@ -143,6 +153,9 @@ public final class LabPipeline {
      emit(e.stage,e.code,e.getMessage());throw e;}}
   }
   return result;
+ }
+ private static boolean isUprotVideo(String url)throws Exception {
+  String h=host(url);return (h.equals("uprot.net")||h.equals("www.uprot.net"))&&https(url).getPath().matches("/(?:msf|msfi)/[A-Za-z0-9_-]{1,128}/?");
  }
  private Source stayOnline(Page page,String selected)throws Exception {
   // Preserve the selected link before transport redirects, as in the observed
@@ -256,7 +269,13 @@ public final class LabPipeline {
  private static String normalMime(String m){String x=m.toLowerCase(Locale.ROOT);return x.contains("mpegurl")?HLS:x.contains("dash+xml")?DASH:x.equals(MP4)?MP4:"";}
  private static String key(String k){return "[\"']?"+k+"[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+)[\"']";}
  public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}public boolean matches(URI u){return super.matches(u)||mixAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}}
- public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{key("file"),key("src")};}
+ public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}
+  String prepare(String h)throws Failure {
+   Matcher scripts=Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script\\s*>").matcher(h);StringBuilder out=new StringBuilder(h);int count=0;
+   while(scripts.find()){String script=scripts.group(1);if(!script.contains(".split("))continue;if(++count>30)throw new Failure(Stage.RESOLVER,"PACKER_LIMIT","MaxStream: troppi script compattati");String decoded=unpackPublic(script);if(!decoded.equals(script))out.append('\n').append(decoded);}
+   return count==0?unpackPublic(h):out.toString();
+  }
+  String[] fields(){return new String[]{"[\"']?(?:file|src)[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+\\.(?:m3u8|mpd|mp4)(?:\\?[^\"'\\r\\n]*)?)[\"']"};}
   public Media parse(Page page,String referer)throws Exception {
    Matcher scripts=Pattern.compile("(?is)<script\\b([^>]*)>\\s*(https://[^<\\s]{1,8192})\\s*</script\\s*>").matcher(page.text());
    while(scripts.find())if("cccc".equals(attrs(scripts.group(1)).get("id"))){String url=absolute(page.url,scripts.group(2));if(!url.isEmpty())return new Media(url,mime(url),page.url,name(),tracks(page));}
@@ -313,6 +332,11 @@ public final class LabPipeline {
    if(out.isEmpty())return super.titles(page);return new ArrayList<>(out.values());
   }
   public String search(String b,String q)throws Exception{return origin(b)+"/archivio?search="+java.net.URLEncoder.encode(q,"UTF-8");}
+  public List<Source> sources(Page page){
+   List<Source> result=new ArrayList<>();Set<String> originRefs=new HashSet<>();Matcher frames=Pattern.compile("(?is)<iframe\\b[^>]*>").matcher(page.text());
+   while(frames.find()){Map<String,String> a=attrs(frames.group());if(!"origin".equalsIgnoreCase(a.getOrDefault("referrerpolicy","")))continue;String u=absolute(page.url,first(a,"data-src","src"));if(!u.isEmpty())originRefs.add(u);}
+   for(Source source:declaredSources(page)){String ref=source.referer;if(originRefs.contains(source.url))try{ref=origin(page.url)+"/";}catch(Exception ignored){}result.add(new Source(source.url,source.label,ref));}return result;
+  }
  }
  public static final class WordpressCatalog extends HtmlCatalog {public String name(){return "WordPress · articoli";}Pattern blocks(){return Pattern.compile("(?is)<article\\b[^>]*>.*?</article>");}public String search(String b,String q)throws Exception{return origin(b)+"/?s="+java.net.URLEncoder.encode(q,"UTF-8");}}
  public static final class DleCatalog extends HtmlCatalog {public String name(){return "DLE · shortstory";}Pattern blocks(){return new AltaCatalog().blocks();}public String search(String b,String q)throws Exception{return origin(b)+"/index.php?do=search&subaction=search&story="+java.net.URLEncoder.encode(q,"UTF-8");}}
