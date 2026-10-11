@@ -9,7 +9,10 @@ import java.nio.charset.StandardCharsets;
 public final class LabPipeline {
  public enum Stage { CATALOG, HOST_SEARCH, RESOLVER, SOURCE, PLAYBACK }
  public interface Observer { void event(Stage stage,String code,String detail); }
- public interface Transport { Page get(String url,String referer,boolean media)throws Exception; }
+ public interface Transport {
+  Page get(String url,String referer,boolean media)throws Exception;
+  default Page postForm(String url,Map<String,String> fields,String referer)throws Exception {throw new Failure(Stage.RESOLVER,"PUBLIC_API_UNAVAILABLE","Trasporto POST pubblico non disponibile");}
+ }
  public static final class Failure extends Exception {
   public final Stage stage; public final String code;
   public Failure(Stage s,String c,String message){super(message);stage=s;code=c;}
@@ -67,7 +70,12 @@ public final class LabPipeline {
  private Page fetch(String url,String referer,boolean media,Stage stage)throws Exception{
   https(url);Page page;
   try{page=transport.get(url,referer,media);}catch(Failure e){emit(stage,e.code,e.getMessage());throw new Failure(stage,e.code,e.getMessage());}catch(Exception e){emit(stage,"NETWORK",e.getClass().getSimpleName());throw new Failure(stage,"NETWORK",e.getClass().getSimpleName());}
+  return checked(page,media,stage);
+ }
+ private Page checked(Page page,boolean media,Stage stage)throws Exception {
   https(page.url);emit(stage,"HTTP_"+page.status,host(page.url));
+  String responseText=page.text().toLowerCase(Locale.ROOT);
+  if(!media&&responseText.contains("cloudflare")&&responseText.contains("1005")&&(responseText.contains("autonomous system")||responseText.contains("asn")))throw new Failure(stage,"ACCESS_ASN_BLOCK","Cloudflare 1005 da "+host(page.url)+": rete ASN bloccata dal sito; nessun tentativo di aggiramento");
   if(page.status!=200&&page.status!=206)throw new Failure(stage,"HTTP_"+page.status,page.status==403?"Accesso rifiutato (HTTP 403) da "+host(page.url)+"; nessuna sorgente letta, causa non determinata":"Risposta HTTP "+page.status+" da "+host(page.url));
   if(!media&&(page.text().contains("cf-chl-")||page.text().contains("g-recaptcha")||page.text().contains("h-captcha")))throw new Failure(stage,"ACCESS_CHALLENGE","La pagina richiede una verifica interattiva; nessun aggiramento");
   return page;
@@ -107,6 +115,9 @@ public final class LabPipeline {
    if(!redirectedMime.isEmpty())result=new Media(page.url,redirectedMime,source.referer,r.name(),Collections.emptyList());
    else if(intermediary(host(page.url))){
     emit(Stage.HOST_SEARCH,"INTERMEDIARY",host(page.url)+" · ricerca collegamenti pubblici");
+    if(host(page.url).equals("stayonline.pro")||host(page.url).equals("www.stayonline.pro")){
+     Source destination=stayOnline(page);emit(Stage.HOST_SEARCH,"PUBLIC_API_LINK",host(page.url)+" → "+host(destination.url));return resolvePublic(destination,visited,depth+1);
+    }
     List<Source> candidates=new ArrayList<>();
     for(Source next:declaredSources(page))if(next.kind==SourceKind.HOST||next.kind==SourceKind.MEDIA||next.kind==SourceKind.INTERMEDIARY)candidates.add(next);
     // Ordinary HTML refresh only. No remote code, hidden API, gate or token generation.
@@ -122,9 +133,67 @@ public final class LabPipeline {
     Source next=candidates.get(0);emit(Stage.HOST_SEARCH,"PUBLIC_LINK",host(page.url)+" → "+host(next.url));return resolvePublic(next,visited,depth+1);
    }
    else {HostResolver finalResolver=resolver(page.url);if(!finalResolver.name().equals(r.name()))emit(Stage.RESOLVER,"REDISPATCH",finalResolver.name());
-    try{result=finalResolver.parse(page,source.referer);}catch(Failure e){emit(e.stage,e.code,e.getMessage());throw e;}}
+    try{result=finalResolver.parse(page,source.referer);}catch(Failure e){
+     if(e.code.equals("NO_PUBLIC_MEDIA")&&(finalResolver instanceof MixDrop||finalResolver instanceof MaxStream)){
+      Source next=hostEmbed(page,finalResolver);
+      if(next!=null){emit(Stage.HOST_SEARCH,"HOST_EMBED",host(page.url)+" · "+finalResolver.name());return resolvePublic(next,visited,depth+1);}
+     }
+     emit(e.stage,e.code,e.getMessage());throw e;}}
   }
   return result;
+ }
+ private Source stayOnline(Page page)throws Exception {
+  String id="";Matcher path=Pattern.compile("/(?:[a-z]?l)/([A-Za-z0-9_-]{6,128})/?$").matcher(https(page.url).getPath());if(path.find())id=path.group(1);
+  Matcher declared=Pattern.compile("\\blinkId\\s*=\\s*['\"]([A-Za-z0-9_-]{6,128})['\"]").matcher(page.text());if(declared.find())id=declared.group(1);
+  if(id.isEmpty())throw new Failure(Stage.RESOLVER,"STAYONLINE_NO_ID","StayOnline: ID pubblico del collegamento non trovato");
+  Map<String,String> form=new LinkedHashMap<>();form.put("id",id);form.put("ref","");
+  String endpoint=origin(page.url)+"/ajax/linkView.php";emit(Stage.RESOLVER,"STAYONLINE_PUBLIC_POST","StayOnline · richiesta destinazione senza credenziali");Page response;
+  try{response=transport.postForm(endpoint,form,page.url);}catch(Failure e){throw e;}catch(Exception e){throw new Failure(Stage.RESOLVER,"NETWORK",e.getClass().getSimpleName());}
+  checked(response,false,Stage.RESOLVER);
+  // Read the data.value envelope, allowing ordinary extra JSON fields.
+  // No evaluation, token generation or ID conversion.
+  Object decoded=new PublicJson(response.text()).parse();Object data=decoded instanceof Map?((Map<?,?>)decoded).get("data"):null;
+  Object value=data instanceof Map?((Map<?,?>)data).get("value"):null;
+  if(!(value instanceof String))throw new Failure(Stage.RESOLVER,"STAYONLINE_NO_DESTINATION","StayOnline: risposta senza data.value pubblico supportato");
+  String url=(String)value;
+  https(url);Source next=new Source(url,host(url),page.url);
+  if(next.kind!=SourceKind.HOST&&next.kind!=SourceKind.MEDIA&&next.kind!=SourceKind.INTERMEDIARY)throw new Failure(Stage.RESOLVER,"STAYONLINE_UNSUPPORTED_TARGET","StayOnline: dominio destinazione senza adattatore compatibile: "+host(url));
+  return next;
+ }
+ private static String jsonString(String raw)throws Failure {
+  StringBuilder out=new StringBuilder();try{for(int i=0;i<raw.length();i++){char c=raw.charAt(i);if(c!='\\'){if(c<32)throw new Exception();out.append(c);continue;}char escape=raw.charAt(++i);switch(escape){case '/':case '\\':case '"':out.append(escape);break;case 'b':out.append('\b');break;case 'f':out.append('\f');break;case 'n':out.append('\n');break;case 'r':out.append('\r');break;case 't':out.append('\t');break;case 'u':out.append((char)Integer.parseInt(raw.substring(i+1,i+5),16));i+=4;break;default:throw new Exception();}}return out.toString();}
+  catch(Exception e){throw new Failure(Stage.RESOLVER,"STAYONLINE_JSON","Escape JSON non supportato nella destinazione");}
+ }
+ /** Small bounded JSON reader for a public response; independent of Android. */
+ private static final class PublicJson {
+  final String text;int pos,items;
+  PublicJson(String s){text=s;}
+  Failure bad(){return new Failure(Stage.RESOLVER,"STAYONLINE_JSON","StayOnline: risposta JSON non valida o oltre i limiti");}
+  void space(){while(pos<text.length()&&Character.isWhitespace(text.charAt(pos)))pos++;}
+  boolean take(char c){space();if(pos<text.length()&&text.charAt(pos)==c){pos++;return true;}return false;}
+  Object parse()throws Failure{if(text.length()>2*1024*1024)throw bad();Object value=value(0);space();if(pos!=text.length())throw bad();return value;}
+  String string()throws Failure{if(!take('"'))throw bad();int start=pos;while(pos<text.length()){char c=text.charAt(pos++);if(c=='"')return jsonString(text.substring(start,pos-1));if(c=='\\'){if(pos>=text.length())throw bad();pos++;}}throw bad();}
+  Object value(int depth)throws Failure{
+   if(depth>12||++items>10000)throw bad();space();if(pos>=text.length())throw bad();char c=text.charAt(pos);
+   if(c=='"')return string();
+   if(take('{')){Map<String,Object> result=new LinkedHashMap<>();if(take('}'))return result;do{String key=string();if(!take(':')||result.containsKey(key))throw bad();result.put(key,value(depth+1));if(take('}'))return result;}while(take(','));throw bad();}
+   if(take('[')){List<Object> result=new ArrayList<>();if(take(']'))return result;do{result.add(value(depth+1));if(take(']'))return result;}while(take(','));throw bad();}
+   int start=pos;while(pos<text.length()&&!Character.isWhitespace(text.charAt(pos))&&",]}".indexOf(text.charAt(pos))<0)pos++;String atom=text.substring(start,pos);
+   if(atom.equals("null"))return null;if(atom.equals("true"))return Boolean.TRUE;if(atom.equals("false"))return Boolean.FALSE;
+   if(atom.matches("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")){try{return Double.valueOf(atom);}catch(NumberFormatException e){throw bad();}}throw bad();
+  }
+ }
+ private static Source hostEmbed(Page page,HostResolver resolver)throws Exception {
+  LinkedHashMap<String,Source> candidates=new LinkedHashMap<>();Matcher frames=Pattern.compile("(?is)<iframe\\b[^>]*>").matcher(page.text());
+  while(frames.find()){Map<String,String> a=attrs(frames.group());String url=absolute(page.url,first(a,"data-src","src"));if(url.isEmpty()||!host(url).equals(host(page.url))||!resolver.matches(https(url)))continue;
+   // Only the actual same-site player embed, not download buttons or advertising frames.
+   if(https(url).getPath().startsWith("/e/")||https(url).getPath().startsWith("/embed-"))candidates.put(url,new Source(url,resolver.name(),page.url));
+  }
+  if(resolver instanceof MaxStream){Matcher links=Pattern.compile("(?is)<a\\b([^>]*)>(.*?)</a\\s*>").matcher(page.text());while(links.find()){
+   String label=decode(links.group(2).replaceAll("<[^>]*>"," ").replaceAll("\\s+"," "));if(!label.matches("(?i)c(?:o|0)ntinue"))continue;
+   String url=absolute(page.url,attrs(links.group(1)).getOrDefault("href",""));if(!url.isEmpty()&&host(url).equals(host(page.url)))candidates.put(url,new Source(url,resolver.name(),page.url));
+  }}
+  if(candidates.size()>1)throw new Failure(Stage.RESOLVER,"HOST_EMBED_AMBIGUOUS","Più embed video sullo stesso host");return candidates.isEmpty()?null:candidates.values().iterator().next();
  }
  public static String detectedMime(Page page){String text=page.text().trim();if(text.startsWith("\ufeff"))text=text.substring(1).trim();if(text.startsWith("#EXTM3U"))return HLS;if(text.matches("(?s)(?:<\\?xml[^>]*>\\s*)?<MPD(?:\\s|>).*"))return DASH;if(page.bytes.length>=12&&new String(page.bytes,4,4,StandardCharsets.US_ASCII).equals("ftyp"))return MP4;return "";}
  public static Map<String,String> attrs(String tag){Map<String,String> out=new HashMap<>();Matcher m=Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])(.*?)\\2",Pattern.DOTALL).matcher(tag);while(m.find())out.put(m.group(1).toLowerCase(Locale.ROOT),decode(m.group(3)));return out;}
@@ -149,7 +218,9 @@ public final class LabPipeline {
   }return new ArrayList<>(all.values());
  }
  public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · ricerca destinazione pubblica";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
- public static boolean knownHost(String h){for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
+ public static boolean knownHost(String h){if(mixAlias(h)||maxAlias(h))return true;for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
+ private static boolean mixAlias(String h){return h.equalsIgnoreCase("mxdrop.top")||h.equalsIgnoreCase("www.mxdrop.top");}
+ private static boolean maxAlias(String h){return h.equalsIgnoreCase("maxsun623.site")||h.equalsIgnoreCase("www.maxsun623.site");}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
  private abstract static class PublicResolver implements HostResolver {
   final String stem,label;
@@ -168,8 +239,8 @@ public final class LabPipeline {
  }
  private static String normalMime(String m){String x=m.toLowerCase(Locale.ROOT);return x.contains("mpegurl")?HLS:x.contains("dash+xml")?DASH:x.equals(MP4)?MP4:"";}
  private static String key(String k){return "[\"']?"+k+"[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+)[\"']";}
- public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}}
- public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{key("file"),key("src")};}}
+ public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}public boolean matches(URI u){return super.matches(u)||mixAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}}
+ public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{key("file"),key("src")};}}
  public static final class Voe extends PublicResolver {public Voe(){super("voe","VOE");}String prepare(String h){
    Matcher m=Pattern.compile("[\"']?(hls|mp4)[\"']?\\s*:\\s*(?:atob\\(\\s*)?[\"']([A-Za-z0-9+/=]{20,})[\"']\\s*\\)?").matcher(h);StringBuffer out=new StringBuffer();while(m.find()){try{String decoded=new String(Base64.getDecoder().decode(m.group(2)),StandardCharsets.UTF_8);https(decoded);m.appendReplacement(out,Matcher.quoteReplacement(m.group(1)+":\""+decoded+"\""));}catch(Exception e){m.appendReplacement(out,Matcher.quoteReplacement(m.group()));}}m.appendTail(out);return out.toString();
   }String[] fields(){return new String[]{key("hls"),key("mp4")};}}

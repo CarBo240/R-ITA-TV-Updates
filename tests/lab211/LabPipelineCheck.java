@@ -109,6 +109,43 @@ public final class LabPipelineCheck {
   check(alta.search(base,"film prova").equals(base+"archivio?search=film+prova"),"observed modern Alta search path");
   String searchUrl=alta.search(base,"Milonga");pages.put(searchUrl,page(searchUrl,modern));
   check(pipeline.catalog(alta,base,"Milonga").size()==1,"search excludes unrelated homepage cards");
+  // Exact alias and /f/ -> /e/ shape observed on the user-provided public MixDrop link.
+  String share="https://mxdrop.top/f/test123456",embed="https://mxdrop.top/e/test123456";
+  pages.put(share,page(share,"<iframe src='/e/test123456'></iframe><iframe src='https://ads.example/e/advert'></iframe>"));
+  pages.put(embed,page(embed,"}('2.3=\"//4/5.6?7=8\";',10,9,'||MDCore|wurl|cdn.example|movie|mp4|token|fixture'.split('|'))"));
+  String aliasedMedia="https://cdn.example/movie.mp4?token=fixture";pages.put(aliasedMedia,new LabPipeline.Page(aliasedMedia,206,"video/mp4",pages.get(stream).bytes));
+  LabPipeline.Media mixResult=pipeline.resolve(new LabPipeline.Source(share,"MixDrop",base));
+  check(mixResult.host.equals("MixDrop")&&mixResult.url.equals(aliasedMedia),"mxdrop alias -> actual declared iframe -> radix10 wurl -> verified media");
+  check(mixResult.referer.equals(embed),"embed referer propagated to media");
+  check(stages.contains("HOST_SEARCH:HOST_EMBED"),"host embed stage logged");
+  check(pipeline.resolver("https://mxdrop.top.evil.example/e/x").name().equals("HTML5 pubblico"),"no alias suffix forgery");
+  String sun="https://maxsun623.site/freeswatcee/test",continueUrl="https://maxsun623.site/player/test";
+  pages.put(sun,page(sun,"<a href='/player/test'><span>C0NTINUE</span></a>"));pages.put(continueUrl,page(continueUrl,"file:'"+stream+"'"));
+  check(pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)).host.equals("MaxStream"),"explicit MaxStream alias and ordinary same-site Continue");
+  pages.put(sun,page(sun,"<a href='https://ads.example/x'>Continue</a>"));failure("NO_PUBLIC_MEDIA",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
+  // Public AJAX integration: first read the link page, then POST its public ID.
+  String stay="https://stayonline.pro/l/test123456/",api="https://stayonline.pro/ajax/linkView.php";
+  Map<String,LabPipeline.Page> apiResponses=new HashMap<>();
+  pages.put(stay,page(stay,"<script>var linkId = 'test123456';</script><a href='https://uprot.net/x/0'>Other link</a><a href='https://uprot.net/x/1'>Other link</a>"));
+  apiResponses.put(api,page(api,"{\"status\":\"success\",\"data\":{\"value\":\"https:\\/\\/mxdrop.top\\/f\\/test123456\"}}"));
+  List<Map<String,String>> posted=new ArrayList<>();
+  LabPipeline ajaxPipeline=new LabPipeline(new LabPipeline.Transport(){
+   public LabPipeline.Page get(String url,String ref,boolean media){if(!pages.containsKey(url))throw new AssertionError(url);return pages.get(url);}
+   public LabPipeline.Page postForm(String url,Map<String,String> fields,String ref){check(url.equals(api)&&ref.equals(stay),"POST fixed same-origin endpoint and page referer");posted.add(new LinkedHashMap<>(fields));return apiResponses.get(url);}
+  },(s,c,d)->stages.add(s+":"+c));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)).url.equals(aliasedMedia),"catalog wrapper -> StayOnline POST -> mxdrop /f/ -> /e/ -> verified MP4");
+  check(posted.get(0).size()==2&&posted.get(0).get("id").equals("test123456")&&posted.get(0).get("ref").isEmpty(),"public ID only; no private key or generated token");
+  check(stages.contains("HOST_SEARCH:PUBLIC_API_LINK"),"AJAX destination phase logged");
+  apiResponses.put(api,page(api,"{\"message\":\"ready\\nnow\",\"data\":{\"id\":123,\"value\":\"https://mxdrop.top/f/test123456\",\"flags\":[true,null,false]},\"status\":\"success\"}"));
+  check(ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)).url.equals(aliasedMedia),"JSON data.value independent of field order and extra fields");
+  apiResponses.put(api,page(api,"{\"data\":{\"value\":\"https://mxdrop.top/e/a\",\"value\":\"https://mxdrop.top/e/b\"}}"));failure("STAYONLINE_JSON",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));
+  apiResponses.put(api,page(api,"{\"data\":{\"value\":\"http://mxdrop.top/e/test123456\"}}"));failure("INVALID_HTTPS",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));
+  apiResponses.put(api,page(api,"{\"data\":{\"value\":\"https://ads.example/player\"}}"));failure("STAYONLINE_UNSUPPORTED_TARGET",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));
+  apiResponses.put(api,page(api,"{\"status\":\"error\"}"));failure("STAYONLINE_NO_DESTINATION",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));
+  apiResponses.put(api,new LabPipeline.Page(api,403,"application/json",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));
+  int postsBefore=posted.size();pages.put(stay,page(stay,"<div class='g-recaptcha'></div><script>linkId='test123456'</script>"));failure("ACCESS_CHALLENGE",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));check(posted.size()==postsBefore,"no API request past access challenge");
+  pages.put(stay,new LabPipeline.Page(stay,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(stay,"MixDrop",base)));check(posted.size()==postsBefore,"no API request after refused page");
+  pages.put(sun,new LabPipeline.Page(sun,403,"text/html","Cloudflare Error 1005: The owner has banned the autonomous system number (ASN).".getBytes(StandardCharsets.UTF_8)));failure("ACCESS_ASN_BLOCK",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
   System.out.println("PASS: "+checks+" pipeline checks; catalogue -> host -> resolver -> validated Media3 input; synthetic fixtures, including observed public DOM shape. No live playback claim.");
  }
 }
