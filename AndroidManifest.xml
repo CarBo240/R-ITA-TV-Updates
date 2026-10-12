@@ -22,6 +22,8 @@
   <activity android:name="it.carmine.streamplayer.ExperimentalCatalogActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.ExperimentalHubActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.ExperimentalPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+  <activity android:name="it.carmine.streamplayer.LabScProxyCatalogActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
+  <activity android:name="it.carmine.streamplayer.LabScProxyPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodSettingsActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodCatalogueActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
   <activity android:name="it.carmine.streamplayer.VodBrowserActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden"/>
