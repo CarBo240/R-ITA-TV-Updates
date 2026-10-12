@@ -27,7 +27,7 @@ public final class ExperimentalHubActivity extends Activity {
  private void add(LinearLayout container,View child){container.addView(child,new LinearLayout.LayoutParams(-1,-2));}
  private void message(String text){state.setText(text);}
  private void clearRows(){entries.removeAllViews();}
- @Override public void onCreate(Bundle saved){super.onCreate(saved);
+ @Override public void onCreate(Bundle saved){super.onCreate(saved);VodNetwork.initialize(this);
   getWindow().getDecorView().setSystemUiVisibility(5894);
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(0xff10151c);
   LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(28),dp(20),dp(28),dp(28));scroll.addView(content);setContentView(scroll);

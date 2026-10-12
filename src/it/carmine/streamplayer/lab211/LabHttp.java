@@ -4,10 +4,11 @@ import java.io.*;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import okhttp3.*;
+import it.carmine.streamplayer.VodNetwork;
 
 /** A LAB-owned, credential-free client. No production DNS, cookies or interceptors. */
 public final class LabHttp implements LabPipeline.Transport {
- private final OkHttpClient client=new OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
+ private final OkHttpClient client=VodNetwork.client().newBuilder().cookieJar(CookieJar.NO_COOKIES)
   .followRedirects(false).followSslRedirects(false).connectTimeout(12,TimeUnit.SECONDS)
   .readTimeout(15,TimeUnit.SECONDS).callTimeout(25,TimeUnit.SECONDS).build();
  public LabPipeline.Page head(String initial,String referer)throws Exception {

@@ -2,12 +2,13 @@ package it.carmine.streamplayer;
 
 import android.app.*;import android.widget.Toast;import android.content.*;import android.webkit.CookieManager;
 import java.io.*;import java.net.*;import java.util.*;import java.util.concurrent.TimeUnit;
+import java.nio.charset.StandardCharsets;
 import javax.net.ssl.SSLException;
 import java.util.concurrent.*;
 import okhttp3.*;import okhttp3.dnsoverhttps.DnsOverHttps;
 
 /** Shared VOD transport. DNS changes never replace URLs or relax TLS checks. */
-final class VodNetwork {
+public final class VodNetwork {
  static final String ENDPOINT="https://cloudflare-dns.com/dns-query";
  static final String[] PROVIDERS={"system","cloudflare","google","quad9","adguard"};
  static final String[] DNS_LABELS={"Automatico (DNS dispositivo)","Cloudflare · Privacy","Google Public DNS","Quad9 · Protezione malware","AdGuard · Blocco pubblicità e tracker"};
@@ -22,7 +23,7 @@ final class VodNetwork {
  static boolean enabled(Context c){return !provider(c).equals("system");}
  static boolean television(Context c){UiModeManager ui=(UiModeManager)c.getSystemService(Context.UI_MODE_SERVICE);return (ui!=null&&ui.getCurrentModeType()==android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)||c.getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK);}
  static synchronized void initialize(Context c){String wanted=provider(c);boolean tv=television(c);if(client==null||!activeProvider.equals(wanted)||television!=tv){activeProvider=wanted;television=tv;client=buildProvider(wanted,tv);metadataClient=build(false,tv).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();}}
- static synchronized OkHttpClient client(){if(client==null)client=buildProvider(activeProvider,television);return client;}
+ public static synchronized OkHttpClient client(){if(client==null)client=buildProvider(activeProvider,television);return client;}
  static synchronized OkHttpClient transport(HttpUrl target){if(target.host().equals("api.themoviedb.org")){if(metadataClient==null)metadataClient=build(false,television).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();return metadataClient;}return client();}
  static OkHttpClient build(boolean cloudflare){return build(cloudflare,false);}
  static OkHttpClient build(boolean cloudflare,boolean tv){return buildProvider(cloudflare?"cloudflare":"system",tv);}
@@ -31,16 +32,38 @@ final class VodNetwork {
   OkHttpClient base=new OkHttpClient.Builder().dns(system).cookieJar(COOKIES).connectTimeout(8,TimeUnit.SECONDS).readTimeout(20,TimeUnit.SECONDS).callTimeout(30,TimeUnit.SECONDS).followSslRedirects(false).build();
   if("system".equals(provider))return base;
   try{
-   OkHttpClient bootstrap=new OkHttpClient.Builder().connectTimeout(4,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).build();
-   DnsOverHttps.Builder builder=new DnsOverHttps.Builder().client(bootstrap).url(HttpUrl.get(endpoint(provider))).includeIPv6(!tv);
    String[] ips=bootstraps(provider);
-   builder.bootstrapDnsHosts(InetAddress.getByName(ips[0]),InetAddress.getByName(ips[1]));
+   InetAddress first=InetAddress.getByName(ips[0]),second=InetAddress.getByName(ips[1]);
+   HttpUrl dohUrl=HttpUrl.get(endpoint(provider));
+   Dns bootstrapDns=host->host.equalsIgnoreCase(dohUrl.host())?Arrays.asList(first,second):system.lookup(host);
+   OkHttpClient bootstrap=new OkHttpClient.Builder().dns(bootstrapDns).connectTimeout(4,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build();
+   DnsOverHttps.Builder builder=new DnsOverHttps.Builder().client(bootstrap).url(dohUrl).includeIPv6(!tv);
+   builder.bootstrapDnsHosts(first,second);
    Dns doh=builder.build();
-   return base.newBuilder().dns(new ShortCache(new FallbackDns(new BoundedDns(doh,6000),system))).build();
+   // Android TV boxes may block DoH while ordinary DNS to the same provider works.
+   // Try the selected provider directly on UDP/53 first, then DoH, then Android DNS.
+   Dns direct=new UdpDns(ips);
+   Dns selected=new FallbackDns(new BoundedDns(direct,6000),new BoundedDns(doh,6000));
+   return base.newBuilder().dns(new ShortCache(new FallbackDns(selected,system))).build();
   }catch(UnknownHostException impossible){throw new IllegalStateException(impossible);}
  }
  static final class FallbackDns implements Dns{final Dns selected,fallback;FallbackDns(Dns a,Dns b){selected=a;fallback=b;}public List<InetAddress> lookup(String host)throws UnknownHostException{try{return selected.lookup(host);}catch(UnknownHostException e){return fallback.lookup(host);}}}
  static final class PreferIpv4 implements Dns{final Dns delegate;PreferIpv4(Dns d){delegate=d;}public List<InetAddress> lookup(String host)throws UnknownHostException{List<InetAddress> result=new ArrayList<>(delegate.lookup(host));result.sort(Comparator.comparing(a->!(a instanceof Inet4Address)));return result;}}
+ static final class UdpDns implements Dns{
+  final String[] servers;UdpDns(String[] value){servers=value.clone();}
+  public List<InetAddress> lookup(String host)throws UnknownHostException{
+   UnknownHostException failure=null;for(String server:servers)try{List<InetAddress> found=query(host,server);if(!found.isEmpty())return found;}catch(Exception e){failure=new UnknownHostException(host+" via "+server);failure.initCause(e);}
+   if(failure!=null)throw failure;throw new UnknownHostException(host);
+  }
+  private static List<InetAddress> query(String host,String server)throws Exception{
+   ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);int id=new Random().nextInt(65536);out.writeShort(id);out.writeShort(0x0100);out.writeShort(1);out.writeShort(0);out.writeShort(0);out.writeShort(0);
+   for(String label:host.split("\\.")){byte[] raw=label.getBytes(StandardCharsets.US_ASCII);if(raw.length==0||raw.length>63)throw new IOException("Nome DNS non valido");out.writeByte(raw.length);out.write(raw);}out.writeByte(0);out.writeShort(1);out.writeShort(1);out.flush();byte[] request=bytes.toByteArray(),response=new byte[2048];
+   DatagramSocket socket=new DatagramSocket();try{socket.connect(InetAddress.getByName(server),53);socket.setSoTimeout(2500);socket.send(new DatagramPacket(request,request.length));DatagramPacket packet=new DatagramPacket(response,response.length);socket.receive(packet);int length=packet.getLength();if(length<12)throw new IOException("Risposta DNS corta");DataInputStream in=new DataInputStream(new ByteArrayInputStream(response,0,length));if(in.readUnsignedShort()!=id)throw new IOException("Risposta DNS non corrispondente");int flags=in.readUnsignedShort();int questions=in.readUnsignedShort(),answers=in.readUnsignedShort();in.readUnsignedShort();in.readUnsignedShort();if((flags&0x000f)!=0)throw new UnknownHostException(host);int offset=12;for(int i=0;i<questions;i++){offset=skipName(response,length,offset);offset+=4;if(offset>length)throw new IOException("Domanda DNS non valida");}List<InetAddress> result=new ArrayList<>();for(int i=0;i<answers;i++){offset=skipName(response,length,offset);if(offset+10>length)throw new IOException("Risposta DNS non valida");int type=u16(response,offset),clazz=u16(response,offset+2),size=u16(response,offset+8);offset+=10;if(offset+size>length)throw new IOException("Dato DNS non valido");if(type==1&&clazz==1&&size==4)result.add(InetAddress.getByAddress(Arrays.copyOfRange(response,offset,offset+4)));offset+=size;}return result;
+   }finally{socket.close();}
+  }
+  private static int u16(byte[] data,int offset){return((data[offset]&255)<<8)|(data[offset+1]&255);}
+  private static int skipName(byte[] data,int length,int offset)throws IOException{int labels=0;while(offset<length){int size=data[offset]&255;if(size==0)return offset+1;if((size&0xc0)==0xc0){if(offset+1>=length)throw new IOException("Puntatore DNS non valido");return offset+2;}if((size&0xc0)!=0||size>63||offset+1+size>length||labels++>127)throw new IOException("Nome DNS non valido");offset+=1+size;}throw new IOException("Nome DNS incompleto");}
+ }
  static final ThreadPoolExecutor dnsWorkers=new ThreadPoolExecutor(0,4,20,TimeUnit.SECONDS,new SynchronousQueue<>(),r->{Thread t=new Thread(r,"VodDns");t.setDaemon(true);return t;});
  static final class BoundedDns implements Dns{final Dns delegate;final long limit;BoundedDns(Dns d,long timeout){delegate=d;limit=timeout;}public List<InetAddress> lookup(String host)throws UnknownHostException{Future<List<InetAddress>> future;try{future=dnsWorkers.submit(()->delegate.lookup(host));}catch(RejectedExecutionException e){throw failure(host,e);}try{return future.get(limit,TimeUnit.MILLISECONDS);}catch(InterruptedException e){future.cancel(true);Thread.currentThread().interrupt();throw failure(host,e);}catch(TimeoutException e){future.cancel(true);throw failure(host,new SocketTimeoutException("DNS scaduto"));}catch(ExecutionException e){if(e.getCause() instanceof UnknownHostException)throw (UnknownHostException)e.getCause();throw failure(host,e.getCause());}}private UnknownHostException failure(String host,Throwable cause){UnknownHostException e=new UnknownHostException(host);e.initCause(cause);return e;}}
  static final class ShortCache implements Dns {
