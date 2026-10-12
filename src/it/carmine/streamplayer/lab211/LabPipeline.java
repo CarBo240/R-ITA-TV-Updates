@@ -219,13 +219,14 @@ public final class LabPipeline {
  }
  private static Source hostEmbed(Page page,HostResolver resolver)throws Exception {
   LinkedHashMap<String,Source> candidates=new LinkedHashMap<>();Matcher frames=Pattern.compile("(?is)<iframe\\b[^>]*>").matcher(page.text());
-  while(frames.find()){Map<String,String> a=attrs(frames.group());String url=absolute(page.url,first(a,"data-src","src"));if(url.isEmpty()||!host(url).equals(host(page.url))||!resolver.matches(https(url)))continue;
+  while(frames.find()){Map<String,String> a=attrs(frames.group());String url=absolute(page.url,first(a,"data-src","src"));if(url.isEmpty()||!resolver.matches(https(url)))continue;
+   boolean same=host(url).equals(host(page.url)),maxHop=resolver instanceof MaxStream&&maxAlias(host(page.url))&&maxDestination(host(url));if(!same&&!maxHop)continue;
    // Only the actual same-site player embed, not download buttons or advertising frames.
-   if(https(url).getPath().startsWith("/e/")||https(url).getPath().startsWith("/embed-"))candidates.put(url,new Source(url,resolver.name(),page.url));
+   if(https(url).getPath().startsWith("/e/")||https(url).getPath().startsWith("/embed-")||maxHop&&https(url).getPath().matches("/(?:cast2|castv|video)/.*"))candidates.put(url,new Source(url,resolver.name(),page.url));
   }
   if(resolver instanceof MaxStream){Matcher links=Pattern.compile("(?is)<a\\b([^>]*)>(.*?)</a\\s*>").matcher(page.text());while(links.find()){
    String label=decode(links.group(2).replaceAll("<[^>]*>"," ").replaceAll("\\s+"," "));if(!label.matches("(?i)c(?:o|0)ntinue"))continue;
-   String url=absolute(page.url,attrs(links.group(1)).getOrDefault("href",""));if(!url.isEmpty()&&host(url).equals(host(page.url)))candidates.put(url,new Source(url,resolver.name(),page.url));
+   String url=absolute(page.url,attrs(links.group(1)).getOrDefault("href",""));if(!url.isEmpty()&&(host(url).equals(host(page.url))||maxAlias(host(page.url))&&maxDestination(host(url))))candidates.put(url,new Source(url,resolver.name(),page.url));
   }}
   if(candidates.size()>1)throw new Failure(Stage.RESOLVER,"HOST_EMBED_AMBIGUOUS","Più embed video sullo stesso host");return candidates.isEmpty()?null:candidates.values().iterator().next();
  }
@@ -254,7 +255,8 @@ public final class LabPipeline {
  public static String sourceStatus(Source source){switch(source.kind){case MEDIA:return "Media dichiarato · da verificare";case HOST:return "Host riconosciuto · sorgente da risolvere";case INTERMEDIARY:return "Intermediario · ricerca destinazione pubblica";case TRAILER:return "Trailer / anteprima · escluso";default:return "Pagina esterna · compatibilità da verificare";}}
  public static boolean knownHost(String h){if(mixAlias(h)||maxAlias(h)||h.equalsIgnoreCase("v.vidxgo.co"))return true;for(String name:new String[]{"mixdrop","maxstream","voe","streamtape","dood","doodstream","supervideo","vidoza"})if(domain(h,name))return true;return false;}
  private static boolean mixAlias(String h){return h.equalsIgnoreCase("mxdrop.top")||h.equalsIgnoreCase("www.mxdrop.top")||h.equalsIgnoreCase("m1xdrop.net")||h.equalsIgnoreCase("www.m1xdrop.net");}
- private static boolean maxAlias(String h){return h.equalsIgnoreCase("maxsun623.site")||h.equalsIgnoreCase("www.maxsun623.site");}
+ private static boolean maxAlias(String h){return h.toLowerCase(Locale.ROOT).matches("(?:www\\.)?max(?:sun|mon)[0-9]{1,6}\\.site");}
+ private static boolean maxDestination(String h){return domain(h,"maxstream")||maxAlias(h);}
  private static boolean domain(String h,String stem){String[] labels=h.toLowerCase(Locale.ROOT).split("\\.");return labels.length>=2&&labels[labels.length-2].equals(stem);}
  private abstract static class PublicResolver implements HostResolver {
   final String stem,label;

@@ -125,6 +125,12 @@ public final class LabPipelineCheck {
   pages.put(sun,page(sun,"<a href='/player/test'><span>C0NTINUE</span></a>"));pages.put(continueUrl,page(continueUrl,"file:'"+stream+"'"));
   check(pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)).host.equals("MaxStream"),"explicit MaxStream alias and ordinary same-site Continue");
   pages.put(sun,page(sun,"<a href='https://ads.example/x'>Continue</a>"));failure("NO_PUBLIC_MEDIA",()->pipeline.resolve(new LabPipeline.Source(sun,"MaxStream",base)));
+  String maxmon="https://maxmon683.site/freeswatcee/vn79a8zkn8g5/4eel0b9qei4p/token",cast2="https://maxstream.video/cast2/vn79a8zkn8g5//token",castHls="https://cdn.example/cast2/master.m3u8";
+  pages.put(castHls,new LabPipeline.Page(castHls,200,LabPipeline.HLS,"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\nvideo.m3u8".getBytes(StandardCharsets.UTF_8)));
+  pages.put(maxmon,page(maxmon,"<a href='"+cast2+"'>C0NTINUE</a>"));pages.put(cast2,page(cast2,"<script id='m3u8'>"+castHls+"</script>"));
+  check(pipeline.resolve(new LabPipeline.Source(maxmon,"MaxStream",base)).url.equals(castHls),"dynamic maxmon alias -> trusted cross-host cast2 -> verified HLS");
+  check(pipeline.resolver(maxmon).name().equals("MaxStream")&&LabPipeline.knownHost("maxmon683.site"),"observed numbered maxmon domain dispatches MaxStream");
+  check(!LabPipeline.knownHost("maxmon683.site.evil.example")&&!LabPipeline.knownHost("maxmon.site"),"numbered MaxStream alias rejects lookalikes");
   // Public AJAX integration: first read the link page, then POST its public ID.
   String stay="https://stayonline.pro/l/test123456/",api="https://stayonline.pro/ajax/linkView.php";
   Map<String,LabPipeline.Page> apiResponses=new HashMap<>();
