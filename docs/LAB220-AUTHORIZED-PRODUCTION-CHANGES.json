@@ -11,12 +11,22 @@
   },
   "src/it/carmine/streamplayer/VodCatalogueActivity.java": {
     "original_sha256": "b115feb90750fda1f91c0ac8119621eabd545e5252c578762503e2e51c0df50d",
-    "sha256": "96a365f7eb21cb286e99b9665f94c78d0d57d380e9efcf993797f5696085db68",
-    "reason": "Menu locandine e Altre fonti con fonti LAB confermate"
+    "sha256": "91b7a83f99949d41b8d63b61ed68510e13de78dc50478b7a678634ca4fcdb5db",
+    "reason": "Menu locandine e Altre fonti: ricerca nascosta e visualizzazione dei soli risultati video verificati"
   },
   "src/it/carmine/streamplayer/VodPlayerActivity.java": {
     "original_sha256": "393633daafed119aead12ce53f97286859777c3a61834cfbb06435c19a529c72",
     "sha256": "879c952005cb9f291f5f8533676dca9d447f0aabb5527e0129e57ecef39ba812",
     "reason": "Riproduzione fonti LAB nel player R. ITA e stile VOD"
+  },
+  "src/it/carmine/streamplayer/RaiAccount.java": {
+    "original_sha256": "a90cafaa4eb483f695cb92046f8a33cab2175e6d1a9929c74002ce9b16d0b818",
+    "sha256": "8cdeed7c957d658b953ca70d0591bfd7784463414d3727eb546c9539c89f34c3",
+    "reason": "Credenziali RaiPlay cifrate con Android Keystore e riutilizzabili per rinnovare la sessione"
+  },
+  "src/it/carmine/streamplayer/RaiAccountActivity.java": {
+    "original_sha256": "b8a26e8a6bcbc86b24dd000110567c62efd78f37e1bcd86422ef390a9f57e58f",
+    "sha256": "3128e96c47931b186909c09483c3c0488836845726700a73778bd0b2305c067b",
+    "reason": "Password RaiPlay sempre mascherata, campi precompilati e cancellazione esplicita delle credenziali"
   }
 }

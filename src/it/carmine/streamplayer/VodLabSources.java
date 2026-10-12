@@ -26,7 +26,8 @@ final class VodLabSources {
    if(candidates.size()!=1)return new VodProviders.Match(source,null,candidates.isEmpty()?"Titolo non trovato":"Più titoli omonimi; associazione non determinata");
    LabPipeline.Title candidate=candidates.get(0);JSONObject json=new JSONObject(wanted.json.toString());if(metadata!=null)json.put("_metadata",metadata);json.put("_lab_page",candidate.url).put("_lab_adapter",kind(source.url)).put("_lab_poster",candidate.poster);
    LabPipeline.SourceReport report=pipeline.sourceReport(adapter,candidate);int count=0;for(LabPipeline.Source host:report.sources)if(playable(host))count++;
-   return new VodProviders.Match(source,new VodSource.Title(json,""),count+" fonti interne · "+candidate.name+(year(candidate.name).isEmpty()&&!wanted.year.isEmpty()?" · anno da confermare":""),candidate.url,true);
+   if(count==0)return new VodProviders.Match(source,null,"Nessun video risolvibile; trailer e host non integrati esclusi");
+   return new VodProviders.Match(source,new VodSource.Title(json,""),count+" fonti video · "+candidate.name+(year(candidate.name).isEmpty()&&!wanted.year.isEmpty()?" · anno da confermare":""),candidate.url,true);
   }catch(Exception e){return new VodProviders.Match(source,null,e instanceof LabPipeline.Failure?((LabPipeline.Failure)e).code+" · "+e.getMessage():VodNetwork.error(e));}
  }
  static LabPipeline.SourceReport sources(VodSource.Title title)throws Exception{

@@ -31,7 +31,7 @@ public final class LabInfinityActivity extends Activity {
  private static boolean official(Uri u){String host=u.getHost();return "https".equalsIgnoreCase(u.getScheme())&&host!=null&&(host.equals("mediasetinfinity.mediaset.it")||host.endsWith(".mediasetinfinity.mediaset.it"));}
  @Override public void onCreate(Bundle saved){super.onCreate(saved);
   frame=new FrameLayout(this);panel=new LinearLayout(this);panel.setOrientation(1);panel.setPadding(dp(12),dp(8),dp(12),0);panel.setBackgroundColor(0xff10151c);frame.addView(panel);setContentView(frame);
-  TextView heading=new TextView(this);heading.setText("LAB 2.1.21 · Mediaset Infinity");heading.setTextColor(Color.WHITE);heading.setTextSize(21);panel.addView(heading);
+  TextView heading=new TextView(this);heading.setText("LAB 2.1.22 · Mediaset Infinity · fallback ufficiale");heading.setTextColor(Color.WHITE);heading.setTextSize(21);panel.addView(heading);
   TextView help=new TextView(this);help.setText("Test sito ufficiale. Per accedere usa Login / Registrati nel sito. Catalogo e video restano nel player Mediaset; compatibilità TV da verificare.");help.setTextColor(0xffc5d3dc);help.setTextSize(14);panel.addView(help);
   status=new TextView(this);status.setTextColor(0xfff2b245);panel.addView(status);
   LinearLayout row=new LinearLayout(this);panel.addView(row);
