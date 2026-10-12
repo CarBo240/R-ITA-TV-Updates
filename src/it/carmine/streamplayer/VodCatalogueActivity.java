@@ -133,7 +133,7 @@ public class VodCatalogueActivity extends Activity {
   Runnable completed=()->{if(remaining.decrementAndGet()!=0)return;runOnUiThread(()->{if(destroyed||request!=detailGeneration||!progress.isShowing())return;progress.setOnDismissListener(null);progress.dismiss();showAvailableSources(wanted,chooseEpisodes,sources,matches);});};
   if(sources.isEmpty()){progress.dismiss();status.setText("Nessun provider configurato");return;}
   for(int n=0;n<sources.size();n++){final int index=n;VodSettings.Source provider=sources.get(n);
-   if(VodSettings.cb01(provider)){lookupCb(provider,wanted,request,found->{matches[index]=found!=null&&found.title!=null?found:null;completed.run();});continue;}
+   if(VodSettings.cb01(provider)&&!VodLabSources.supported(provider)){lookupCb(provider,wanted,request,found->{matches[index]=found!=null&&found.title!=null?found:null;completed.run();});continue;}
    providerWorkers.submit(()->{try{String cacheKey=wanted.id+":"+provider.id+":"+provider.url;VodProviders.Match match=VodLabSources.supported(provider)?null:matchCache.get(cacheKey);if(match==null){match=VodLabSources.supported(provider)?VodLabSources.search(provider,wanted):VodProviders.search(provider,wanted,fetcher());if(match.title!=null&&!match.title.json.has("_lab_page")&&!match.title.json.optBoolean("_web_search"))matchCache.put(cacheKey,match);}matches[index]=verifiedSource(match);}finally{completed.run();}});
   }
  }
