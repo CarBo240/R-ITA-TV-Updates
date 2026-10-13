@@ -9,7 +9,15 @@ final class VodDrawer {
  LinearLayout rail=new LinearLayout(a);rail.setOrientation(LinearLayout.VERTICAL);rail.setTag("vodCompactSidebar");rail.setBackgroundColor(UiTheme.background(a));rail.setPadding(4*d,78*d,4*d,14*d);
  LinearLayout icons=new LinearLayout(a);icons.setOrientation(LinearLayout.VERTICAL);rail.addView(icons,new LinearLayout.LayoutParams(-1,0,1));
  for(int i=0;i<labels.length;i++){Button b=new Button(a);b.setText("");b.setContentDescription(labels[i]);b.setPadding(10*d,0,0,0);b.setMinHeight(0);b.setMinimumHeight(0);b.setMinWidth(0);b.setMinimumWidth(0);b.setBackground(premiumBackground(a));VodMenuIcon icon=new VodMenuIcon(i,UiTheme.TEXT);icon.setBounds(0,0,29*d,29*d);b.setCompoundDrawables(icon,null,null,null);icons.addView(b,new LinearLayout.LayoutParams(-1,menuRow));b.setOnClickListener(v->holder[0].show());b.setOnFocusChangeListener((v,hasFocus)->{icon.color(hasFocus?UiTheme.accent(a):UiTheme.TEXT);if(hasFocus&&holder[0]!=null&&!holder[0].open())holder[0].show();});}
- root.addView(rail,new FrameLayout.LayoutParams(56*d,-1,Gravity.START));drawer.bringToFront();Controller controller=new Controller(drawer,buttons,previous,rail);holder[0]=controller;return controller;}
+ root.addView(rail,new FrameLayout.LayoutParams(56*d,-1,Gravity.START));drawer.bringToFront();Controller controller=new Controller(drawer,buttons,previous,rail);holder[0]=controller;
+ root.getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus,newFocus)->{
+  if(newFocus==null||!controller.open())return;
+  if(!Controller.inside(drawer,newFocus)&&!Controller.inside(rail,newFocus)){
+   // Closing on focus loss must not steal focus from the newly focused card.
+   drawer.setVisibility(View.GONE);
+  }
+ });
+ return controller;}
  private static Drawable premiumBackground(Activity a){float d=a.getResources().getDisplayMetrics().density;StateListDrawable states=new StateListDrawable();GradientDrawable focus=new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,new int[]{UiTheme.softFocus(a),0x00202125});focus.setCornerRadius(9*d);focus.setStroke(Math.max(2,Math.round(2*d)),UiTheme.accent(a));states.addState(new int[]{android.R.attr.state_focused},focus);states.addState(new int[]{android.R.attr.state_pressed},focus);states.addState(new int[]{},new ColorDrawable(Color.TRANSPARENT));return states;}
  private static void navigate(Activity a,int action){
   if(action==0){a.startActivity(new Intent(a,MainActivity.class).putExtra("openLive",true));return;}

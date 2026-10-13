@@ -4,7 +4,7 @@ import android.app.*;
 final class VodTitleMenu {
  static void show(Activity a,VodSource.Title title,VodSettings.Source source,Runnable changed){
   String scope=title.json.optBoolean("_rai")?"raiplay":TmdbClient.scope(title,source),id=TmdbClient.identity(title);
-  String[] labels={VodLibrary.watchlisted(a,scope,id)?"Da guardare · rimuovi":"Da guardare · aggiungi",VodLibrary.favorite(a,scope,id)?"Preferiti · rimuovi":"Preferiti · aggiungi","Continua a guardare · rimuovi dalla cronologia"};
+  String[] labels={VodLibrary.watchlisted(a,scope,id)?"Da vedere · rimuovi":"Da vedere · aggiungi",VodLibrary.favorite(a,scope,id)?"Preferiti · rimuovi":"Preferiti · aggiungi","Continua a guardare · rimuovi dalla cronologia"};
   new AlertDialog.Builder(a).setTitle(title.name).setItems(labels,(dialog,n)->{
    if(n==0)VodLibrary.watchlist(a,scope,title);
    else if(n==1)VodLibrary.favorite(a,scope,title);
