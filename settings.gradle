@@ -1,3 +1,7 @@
 pluginManagement { repositories { maven { url uri('.m2') }; google(); mavenCentral(); gradlePluginPortal() } }
 dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { maven { url uri('.m2') }; google(); mavenCentral() } }
 rootProject.name = 'TVSatPlayer'
+
+// R. ITA Live 1.5 as an Android library (no second launcher).
+include(':rita-live-module')
+project(':rita-live-module').projectDir = file('rita-live-module')

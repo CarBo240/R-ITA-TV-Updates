@@ -1,0 +1,17 @@
+R. ITA TV 2.1.32 - PATCH rispetto ai sorgenti 2.1.31
+
+Questo ZIP contiene soltanto file nuovi o modificati confrontati BYTE PER BYTE con
+R-ITA-TV-v2.1.31-sorgenti-completi.zip.
+
+Caricare le cartelle e i file direttamente nella RADICE del repository GitHub
+(R-ITA-TV-Updates-main), mantenendo i percorsi.
+Sovrascrivere i 3 file esistenti e aggiungere gli 113 nuovi.
+Nessun file preesistente da eliminare.
+
+File esistenti cambiati:
+- build.gradle
+- settings.gradle
+- src/it/carmine/streamplayer/MainActivity.java
+
+Prerequisito: il repository deve già contenere esattamente i sorgenti 2.1.31.
+Da verificare: compilazione GitHub e test Eventi/Daddy su dispositivo.

@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private ArtworkStore artwork;
     private ImageView guideImage;
     private LinearLayout navigation;
-    private Button navDirect,navCategories,navFavorites,navGuide,navEpg,navVod;
+    private Button navDirect,navCategories,navFavorites,navGuide,navEpg,navVod,navEvents,navDaddy;
     private boolean resumePlayback;
 
     private VavooClient.Channel currentChannel,requestedChannel;
@@ -116,12 +116,18 @@ public class MainActivity extends Activity {
             if(navigation!=null&&content!=null&&(wideMode==null||wideMode!=wide)){wideMode=wide;
                 navigation.setOrientation(HORIZONTAL);navigation.setLayoutParams(lp(-1,dp(wide?50:44)));
                 content.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1));
-                Button[] buttons={navDirect,navCategories,navFavorites,navGuide,navVod,reload};
-                String[] large={"Canali ▾","Categorie ▾","Preferiti","Guida TV","VOD","↻"},small={"TV","▦","★","Guida","VOD","↻"};
+                Button[] buttons={navDirect,navCategories,navFavorites,navGuide,navEvents,navDaddy,navVod,reload};
+                String[] large={"Canali ▾","Categorie ▾","Preferiti","Guida TV","Eventi","Daddy Live","VOD","↻"},small={"TV","▦","★","Guida","Eventi","Daddy","VOD","↻"};
                 for(int i=0;i<buttons.length;i++){LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(i==buttons.length-1?dp(wide?48:36):0,-1,i==buttons.length-1?0:1);params.setMarginEnd(dp(4));buttons[i].setLayoutParams(params);buttons[i].setText(wide?large[i]:small[i]);buttons[i].setContentDescription(i==buttons.length-1?"Aggiorna":large[i]);buttons[i].setTextSize(wide?14:11);buttons[i].setSingleLine(true);}
             }
             super.onMeasure(width,height);
         }
+    }
+    /** Carry the existing VOD DNS selection into the separate Live module session. */
+    private void openRitaLive(String section){
+        boolean cloudflare="cloudflare".equals(VodNetwork.provider(this));
+        startActivity(new Intent(this,com.rita.eventilive.MainActivity.class)
+            .putExtra("section",section).putExtra("dns_cloudflare",cloudflare));
     }
     private void resetListTimer(){uiHandler.removeCallbacks(hideChannelList);if(channelPanel!=null&&channelPanel.getVisibility()==View.VISIBLE)uiHandler.postDelayed(hideChannelList,LIST_TIMEOUT);}
     private static class ChannelRow {
@@ -197,9 +203,11 @@ public class MainActivity extends Activity {
         navFavorites=homeButton("★ Preferiti");navigation.addView(navFavorites,lp(-1,dp(48)));
         navGuide=homeButton("≡ Guida TV");navigation.addView(navGuide,lp(-1,dp(48)));
         navVod=homeButton("VOD");navVod.setTag("navVod");navVod.setOnClickListener(v->startActivity(new Intent(this,VodActivity.class)));navVod.setOnLongClickListener(v->{VodSession.videoMenu(this,()->{});return true;});
+        navEvents=homeButton("Eventi");navEvents.setTag("navEvents");navEvents.setContentDescription("R. ITA Live Eventi");navEvents.setOnClickListener(v->openRitaLive("events"));
+        navDaddy=homeButton("Daddy Live");navDaddy.setTag("navDaddyLive");navDaddy.setContentDescription("R. ITA Live Daddy Live");navDaddy.setOnClickListener(v->openRitaLive("daddy"));
         reload=homeButton("↻ Aggiorna");navigation.addView(reload,lp(-1,dp(48)));
         navEpg=homeButton("⚙ EPG");navEpg.setOnClickListener(v->epgSettings());navGuide.setOnLongClickListener(v->{epgSettings();return true;});
-        navigation.removeAllViews();for(Button item:new Button[]{navDirect,navCategories,navFavorites,navGuide,navVod,reload}){navigation.addView(item);UiTheme.navigation(item);}
+        navigation.removeAllViews();for(Button item:new Button[]{navDirect,navCategories,navFavorites,navGuide,navEvents,navDaddy,navVod,reload}){navigation.addView(item);UiTheme.navigation(item);}
         navDirect.setOnClickListener(v->chooseChannelSource());
         navDirect.setOnLongClickListener(v->{editChannelUrls();return true;});
         navCategories.setOnClickListener(v->{categories.requestFocus();categories.performClick();});navFavorites.setOnClickListener(v->favs.performClick());navGuide.setOnClickListener(v->showSchedule(guideChannel));
