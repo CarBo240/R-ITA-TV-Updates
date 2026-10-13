@@ -45,6 +45,14 @@ final class VodLabSources {
   if(selected==null&&sameLabel.size()==1)selected=sameLabel.get(0);
   if(selected==null||!playable(selected))throw new Exception("Fonte cambiata o non più disponibile · scegli Altre fonti");
   if(LabVixBridge.matches(selected.url))return new Resolved(LabVixBridge.resolve(context,selected.url,(stage,code,message)->{}),null);
+  if(CbLinkTargets.mixdrop(selected.url)||CbLinkTargets.stay(selected.url)){
+   String link=selected.url;if(CbLinkTargets.stay(link))link=CbStayResolver.resolve(link,selected.referer,CbMixdropResolver.USER_AGENT);
+   if(!CbLinkTargets.mixdrop(link))throw new Exception("Il collegamento non porta a MixDrop");
+   CbMixdropResolver.Result result=CbMixdropResolver.resolve(link,selected.referer,CbMixdropResolver.USER_AGENT);
+   String mime=result.url.matches("(?i).*\\.m3u8(?:\\?.*)?")?LabPipeline.HLS:LabPipeline.MP4;
+   LabPipeline.Media media=new LabPipeline.Media(result.url,mime,result.page,"MixDrop",Collections.emptyList());
+   return new Resolved(new VodSource.Stream(media.url,media.referer,"",media.mime,Collections.emptyMap()),media);
+  }
   LabPipeline.Media media=new LabPipeline(new LabHttp(),null).resolve(selected);
   if(!media.host.equals("MixDrop")&&!media.host.equals("VidXGo")&&selected.kind!=LabPipeline.SourceKind.MEDIA)throw new Exception("La destinazione non è una fonte LAB integrata");
   return new Resolved(new VodSource.Stream(media.url,media.referer,"",media.mime,Collections.emptyMap()),media);
