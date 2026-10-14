@@ -31,7 +31,7 @@ public final class ExperimentalHubActivity extends Activity {
   getWindow().getDecorView().setSystemUiVisibility(5894);
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(0xff10151c);
   LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(28),dp(20),dp(28),dp(28));scroll.addView(content);setContentView(scroll);
-  TextView heading=text("R. ITA · LABORATORIO TEST",24);heading.setTextColor(0xff4fd4b1);add(content,heading);
+  TextView heading=text("R. ITA · LABORATORIO TEST · "+BuildConfig.VERSION_NAME+"",24);heading.setTextColor(0xff4fd4b1);add(content,heading);
   TextView help=text("Ambiente separato: cataloghi provider, ricerche e player HLS/DASH/MP4. Nessuna modifica alle impostazioni o alle riproduzioni del VOD principale.",14);help.setPadding(0,dp(10),0,dp(10));add(content,help);
   state=text("Caricamento fonti…",14);state.setTextColor(0xffc5d3dc);add(content,state);
   LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);add(content,tools);
@@ -43,7 +43,7 @@ public final class ExperimentalHubActivity extends Activity {
   Button infinity=button("Mediaset Infinity · sito ufficiale (fallback)");add(content,infinity);infinity.setOnClickListener(v->startActivity(new Intent(this,LabInfinityActivity.class)));
   TextView providerTitle=text("PROVIDER DISPONIBILI",19);providerTitle.setPadding(0,dp(15),0,dp(8));add(content,providerTitle);
   entries=new LinearLayout(this);entries.setOrientation(1);add(content,entries);
-  Button addLab=button("Aggiungi / configura provider LAB 2.1.23");add(content,addLab);addLab.setOnClickListener(v->configureLab());
+  Button addLab=button("Aggiungi / configura provider LAB");add(content,addLab);addLab.setOnClickListener(v->configureLab());
   loadLocal();
  }
  private void loadLocal(){
@@ -90,7 +90,7 @@ public final class ExperimentalHubActivity extends Activity {
  private void chooseLabAdapter(String name,String url){new AlertDialog.Builder(this).setTitle("Adattatore catalogo · "+name).setItems(LAB_LABELS,(d,n)->openLab(name,url,LAB_KINDS[n])).setNegativeButton("Annulla",null).show();}
  private void openLab(String name,String url,String adapter){startActivity(new Intent(this,LabMultiCatalogActivity.class).putExtra("lab_url",url).putExtra("lab_name",name).putExtra("lab_adapter",adapter));}
  private void appendLabProviders(){for(VodSettings.Source provider:VodSettings.sources(this))if(VodLabSources.supported(provider)){Button preset=button(provider.name+" · "+VodLabSources.kind(provider.url));add(entries,preset);preset.setOnClickListener(v->openLab(provider.name,provider.url,VodLabSources.kind(provider.url)));}
-  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB 2.1.23 · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
+  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
   catch(Exception e){message("Configurazioni LAB non leggibili");}
  }
  private void removeLab(String url){try{JSONArray old=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]")),next=new JSONArray();for(int i=0;i<old.length();i++)if(!url.equals(old.getJSONObject(i).optString("url")))next.put(old.getJSONObject(i));getSharedPreferences("lab211",0).edit().putString("providers",next.toString()).apply();loadLocal();}catch(Exception e){message("Eliminazione configurazione fallita");}}

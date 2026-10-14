@@ -11,7 +11,7 @@ public final class ScPlaylistConfig {
  }
  public static String playlist(String html,String embed)throws Exception {
   String block=object(html,"masterPlaylist");if(block.isEmpty())throw new IOException("SC · configurazione playlist non riconosciuta");
-  String url=field(block,"url");if(url.isEmpty()){String id=field(object(html,"video"),"id");if(!id.matches("[0-9]+"))throw new IOException("SC · identificativo video assente");URI page=new URI(embed);url=page.getScheme()+"://"+page.getAuthority()+"/playlist/"+id;}
+  String url=field(block,"url"),videoId=field(object(html,"video"),"id");if(!url.isEmpty()){url=new URI(embed).resolve(url).toString();URI candidate=new URI(url);if(candidate.getPath()!=null&&candidate.getPath().endsWith("/playlist/")&&videoId.matches("[0-9]+"))url=new URI(candidate.getScheme(),candidate.getAuthority(),candidate.getPath()+videoId,candidate.getQuery(),candidate.getFragment()).toString();}if(url.isEmpty()){String id=videoId;if(!id.matches("[0-9]+"))throw new IOException("SC · identificativo video assente");URI page=new URI(embed);url=page.getScheme()+"://"+page.getAuthority()+"/playlist/"+id;}
   URI uri=new URI(url);if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)throw new IOException("SC · playlist non valida");
   for(String key:new String[]{"token","expires","asn"}){String value=field(block,key);if(!value.isEmpty()&&!has(url,key))url=append(url,key,value);}
   if(!has(url,"b")&&"1".equals(query(embed,"b")))url=append(url,"b","1");

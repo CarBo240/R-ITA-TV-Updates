@@ -7,7 +7,7 @@ import it.carmine.streamplayer.lab211.*;
 /** Reuses confirmed LAB adapters/resolvers, but launches the normal R. ITA player. */
 final class VodLabSources {
  static String kind(String url){return LabVodPolicy.adapterKind(url);}
- static boolean supported(VodSettings.Source source){return source!=null&&!kind(source.url).isEmpty()&&!source.nativeCatalog()&&!source.vixsrc();}
+ static boolean supported(VodSettings.Source source){return source!=null&&!kind(source.url).isEmpty()&&!source.vixsrc()&&!source.scuapi();}
  static List<VodSettings.Source> providers(Context context){
   List<VodSettings.Source> all=new ArrayList<>(VodSettings.sources(context));Set<String> hosts=new HashSet<>();for(VodSettings.Source s:all)hosts.add(LabPipeline.host(s.url).replaceFirst("^www\\.",""));
   try{JSONArray lab=new JSONArray(context.getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<lab.length();i++){JSONObject p=lab.getJSONObject(i);String url=p.getString("url"),host=LabPipeline.host(url).replaceFirst("^www\\.","");if(kind(url).isEmpty()||!hosts.add(host))continue;LabPipeline.https(url);all.add(new VodSettings.Source("lab_"+host.replaceAll("[^A-Za-z0-9_-]","_"),p.getString("name"),url,"web"));}}catch(Exception ignored){}

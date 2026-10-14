@@ -38,8 +38,7 @@ public final class LabHttp implements LabPipeline.Transport {
    if(LabVodPolicy.adapterKind(url).equals("animeunity"))request.header("User-Agent",PlaybackHeaders.userAgent("VidXGo"));
    if(LabPipeline.host(url).equals("v.vidxgo.co"))request.header("User-Agent",PlaybackHeaders.userAgent("VidXGo"));
    if(media&&"https://v.vidxgo.co".equals(referer))request.header("Sec-Fetch-Dest","empty").header("Sec-Fetch-Mode","cors").header("Sec-Fetch-Site","cross-site");
-   else if(LabVodPolicy.adapterKind(url).equals("animeunity"))request.header("User-Agent",PlaybackHeaders.userAgent("VidXGo"));
-   if(LabPipeline.host(url).equals("v.vidxgo.co"))request.header("Sec-Fetch-Dest","iframe");
+   else if(LabPipeline.host(url).equals("v.vidxgo.co"))request.header("Sec-Fetch-Dest","iframe");
    try(Response response=client.newCall(request.build()).execute()){
     int status=response.code();if(status==301||status==302||status==303||status==307||status==308){String location=response.header("Location","");String next=LabPipeline.absolute(url,location);if(next.isEmpty()||location.isEmpty())throw new LabPipeline.Failure(LabPipeline.Stage.SOURCE,"UNSAFE_REDIRECT","Redirect non HTTPS o non valido");url=next;continue;}
     int limit=media?65536:2*1024*1024;ByteArrayOutputStream out=new ByteArrayOutputStream();

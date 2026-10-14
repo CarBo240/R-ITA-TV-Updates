@@ -129,7 +129,7 @@ public final class LabPipeline {
   }
   String direct=mime(source.url);Media result;
   if(!direct.isEmpty()){emit(Stage.RESOLVER,"DIRECT",direct);result=new Media(source.url,direct,source.referer,"Diretto",Collections.emptyList());}
-  else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",source.kind==SourceKind.INTERMEDIARY?"Collegamenti pubblici · "+host(source.url):r.name());Page page=fetch(source.url,source.referer,false,Stage.RESOLVER);
+  else{HostResolver r=resolver(source.url);emit(Stage.RESOLVER,"ADAPTER",source.kind==SourceKind.INTERMEDIARY?"Collegamenti pubblici · "+host(source.url):r.name());String pageUrl=r instanceof MixDrop?it.carmine.streamplayer.CbLinkTargets.embed(source.url):source.url;if(!pageUrl.equals(source.url))emit(Stage.HOST_SEARCH,"EMBED_ROUTE",host(pageUrl));Page page=checked(transport.getWithHeaders(pageUrl,source.referer,false,PlaybackHeaders.page(pageUrl)),false,Stage.RESOLVER);
    // HTTP redirects may legitimately change the host. Dispatch again on the final URL.
    String redirectedMime=detectedMime(page);
    if(!redirectedMime.isEmpty())result=new Media(page.url,redirectedMime,source.referer,r.name(),Collections.emptyList());
@@ -292,7 +292,7 @@ if(!finalResolver.name().equals(r.name()))emit(Stage.RESOLVER,"REDISPATCH",final
  }
  private static String normalMime(String m){String x=m.toLowerCase(Locale.ROOT);return x.contains("mpegurl")?HLS:x.contains("dash+xml")?DASH:x.equals(MP4)?MP4:"";}
  private static String key(String k){return "[\"']?"+k+"[\"']?\\s*[:=]\\s*[\"']([^\"'\\r\\n]+)[\"']";}
- public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}public boolean matches(URI u){return super.matches(u)||mixAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}public Media parse(Page page,String referer)throws Exception{String url=it.carmine.streamplayer.CbMixdropConfig.extract(page.text(),page.url);if(!url.isEmpty())return new Media(url,mime(url),"",name(),tracks(page));return super.parse(page,referer);}}
+ public static final class MixDrop extends PublicResolver {public MixDrop(){super("mixdrop","MixDrop");}public boolean matches(URI u){return super.matches(u)||mixAlias(u.getHost());}String prepare(String h)throws Failure{return unpackPublic(h);}String[] fields(){return new String[]{"MDCore\\.(?:wurl|vurl)\\s*=\\s*[\"']([^\"']+)[\"']"};}public Media parse(Page page,String referer)throws Exception{String url=it.carmine.streamplayer.CbMixdropConfig.extract(page.text(),page.url);if(!url.isEmpty())return new Media(url,mime(url),"",name(),tracks(page));Media fallback=super.parse(page,referer);return new Media(fallback.url,fallback.mime,"",name(),fallback.subtitles);}}
  public static final class MaxStream extends PublicResolver {public MaxStream(){super("maxstream","MaxStream");}public boolean matches(URI u){return super.matches(u)||maxAlias(u.getHost());}
   String prepare(String h)throws Failure {
    Matcher scripts=Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script\\s*>").matcher(h);StringBuilder out=new StringBuilder(h);int count=0;
