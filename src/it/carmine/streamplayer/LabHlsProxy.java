@@ -17,11 +17,13 @@ final class LabHlsProxy implements Closeable {
  private final OkHttpClient http;
  private final String referer,origin;
  private volatile boolean closed;
+ private volatile String lastFailure="";
+ String diagnostic(){return lastFailure;}
 
  LabHlsProxy(String referer)throws Exception{
   URI page=new URI(referer);if(!"https".equalsIgnoreCase(page.getScheme())||page.getHost()==null)throw new IOException("Referer Vix non valido");
   this.referer=referer;this.origin="https://"+page.getHost();
-  http=VodNetwork.client().newBuilder().followRedirects(true).followSslRedirects(false).callTimeout(0,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).build();
+  http=StreamflixBridge.playbackClient().newBuilder().followRedirects(true).followSslRedirects(false).callTimeout(0,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).build();
   server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0),8);
   pool.execute(this::accept);
  }
@@ -29,12 +31,12 @@ final class LabHlsProxy implements Closeable {
  private void accept(){while(!closed)try{Socket socket=server.accept();pool.execute(()->serve(socket));}catch(IOException e){if(!closed)closed=true;}}
  private void serve(Socket socket){try(Socket s=socket){s.setSoTimeout(15000);BufferedReader in=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.US_ASCII));String first=in.readLine();if(first==null)return;String range="";for(String line;(line=in.readLine())!=null&&!line.isEmpty();)if(line.regionMatches(true,0,"Range:",0,6))range=line.substring(6).trim();
    String[] words=first.split(" ");if(words.length<2||!"GET".equals(words[0])){error(s,405,"Metodo non supportato");return;}URI local=new URI(words[1]);String query=local.getRawQuery(),raw=query!=null&&query.startsWith("u=")?query.substring(2):"";if(raw.isEmpty()){error(s,400,"URL assente");return;}URI upstream=checked(dec(raw));
-   Request.Builder request=new Request.Builder().url(upstream.toString()).header("User-Agent",VodSource.USER_AGENT).header("Accept","*/*").header("Accept-Language","it-IT,it;q=0.9,en;q=0.7").header("Referer",referer).header("Origin",origin).header("Sec-Fetch-Site","cross-site").header("Sec-Fetch-Mode","cors").header("Sec-Fetch-Dest","empty").header("Connection","close");try{String cookie=android.webkit.CookieManager.getInstance().getCookie(upstream.toString());if(cookie!=null&&!cookie.isEmpty())request.header("Cookie",cookie);}catch(Throwable ignored){}if(!range.isEmpty())request.header("Range",range);
-   try(Response response=http.newCall(request.build()).execute()){ResponseBody body=response.body();if(body==null){error(s,502,"Risposta vuota");return;}String type=response.header("Content-Type","application/octet-stream");boolean playlist=type.toLowerCase(Locale.ROOT).contains("mpegurl")||upstream.getPath().toLowerCase(Locale.ROOT).contains(".m3u8");
-    if(playlist){byte[] bytes=body.bytes();String text=new String(bytes,StandardCharsets.UTF_8);if(response.isSuccessful()&&text.trim().startsWith("#EXTM3U"))bytes=rewrite(text,upstream).getBytes(StandardCharsets.UTF_8);headers(s,response.code(),"application/vnd.apple.mpegurl",bytes.length,response.header("Content-Range"));s.getOutputStream().write(bytes);}
+   Request.Builder request=new Request.Builder().url(upstream.toString()).header("User-Agent",ScPlaylistConfig.USER_AGENT).header("Accept","*/*").header("Accept-Language","it-IT,it;q=0.9,en;q=0.7").header("Referer",referer).header("Connection","close");try{String cookie=android.webkit.CookieManager.getInstance().getCookie(upstream.toString());if(cookie!=null&&!cookie.isEmpty())request.header("Cookie",cookie);}catch(Throwable ignored){}if(!range.isEmpty())request.header("Range",range);
+   try(Response response=http.newCall(request.build()).execute()){if(!response.isSuccessful())lastFailure="HTTP "+response.code()+" · "+(upstream.getPath().contains(".m3u8")||upstream.getPath().contains("/playlist/")?"playlist":"segmento/chiave")+" · "+upstream.getHost();ResponseBody body=response.body();if(body==null){error(s,502,"Risposta vuota");return;}String type=response.header("Content-Type","application/octet-stream");boolean playlist=type.toLowerCase(Locale.ROOT).contains("mpegurl")||upstream.getPath().toLowerCase(Locale.ROOT).contains(".m3u8");
+    if(playlist){byte[] bytes=body.bytes();String text=new String(bytes,StandardCharsets.UTF_8);if(response.isSuccessful()&&text.trim().startsWith("#EXTM3U"))bytes=rewrite(text,response.request().url().uri()).getBytes(StandardCharsets.UTF_8);headers(s,response.code(),"application/vnd.apple.mpegurl",bytes.length,response.header("Content-Range"));s.getOutputStream().write(bytes);}
     else {long length=body.contentLength();headers(s,response.code(),type,length,response.header("Content-Range"));try(InputStream data=body.byteStream()){byte[] b=new byte[32768];for(int n;(n=data.read(b))!=-1;)s.getOutputStream().write(b,0,n);}}
    }
-  }catch(Exception ignored){try{error(socket,502,"Relay HLS non disponibile");}catch(Exception ignoredAgain){}}
+  }catch(Exception ignored){lastFailure="Relay · "+ignored.getClass().getSimpleName();try{error(socket,502,"Relay HLS non disponibile");}catch(Exception ignoredAgain){}}
  }
  private String rewrite(String playlist,URI base)throws Exception{StringBuilder out=new StringBuilder();for(String line:playlist.split("\\r?\\n",-1)){Matcher m=URI_ATTR.matcher(line);StringBuffer replaced=new StringBuffer();while(m.find())m.appendReplacement(replaced,Matcher.quoteReplacement("URI=\""+url(base.resolve(m.group(1)).toString())+"\""));m.appendTail(replaced);String value=replaced.toString();String trim=value.trim();if(!trim.isEmpty()&&!trim.startsWith("#"))value=url(base.resolve(trim).toString());out.append(value).append('\n');}return out.toString();}
  private static URI checked(String value)throws Exception{URI uri=new URI(value);if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getPort()!=-1)throw new IOException("Destinazione HLS non valida");String h=uri.getHost().toLowerCase(Locale.ROOT);if(h.equals("localhost")||h.endsWith(".local")||h.matches("(?:127|10|0)\\..*")||h.matches("192\\.168\\..*")||h.matches("172\\.(?:1[6-9]|2[0-9]|3[01])\\..*"))throw new IOException("Destinazione locale rifiutata");return uri;}
