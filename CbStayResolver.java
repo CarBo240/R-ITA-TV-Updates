@@ -7,9 +7,9 @@ final class CbStayResolver {
   String html;try(Response r=CbTransport.http().newCall(new Request.Builder().url(url).header("User-Agent",ua).header("Referer",parent).build()).execute()){
    if(!r.isSuccessful()||r.body()==null)throw new Exception("StayOnline HTTP "+r.code());html=r.body().string();
   }
-  if(!html.contains("/ajax/linkView.php"))throw new Exception("Comando Continua non disponibile");
+  if(html.matches("(?is).*(?:g-recaptcha|cf-chl-|Just a moment).*"))throw new Exception("StayOnline · verifica richiesta nel sito");
   String id=new URI(url).getPath().split("/")[2];
-  Request req=new Request.Builder().url("https://stayonline.pro/ajax/linkView.php").header("User-Agent",ua).header("Referer",url).header("Origin","https://stayonline.pro").header("X-Requested-With","XMLHttpRequest").header("Accept","application/json, text/javascript, */*; q=0.01").post(new FormBody.Builder().add("id",id).add("ref",parent).build()).build();
+  Request req=new Request.Builder().url("https://stayonline.pro/ajax/linkEmbedView.php").header("User-Agent",ua).header("Referer","https://stayonline.pro/").header("Origin","https://stayonline.pro").header("X-Requested-With","XMLHttpRequest").header("Accept","application/json, text/javascript, */*; q=0.01").post(new FormBody.Builder().add("id",id).add("ref","").build()).build();
   try(Response r=CbTransport.http().newCall(req).execute()){
    if(!r.isSuccessful()||r.body()==null)throw new Exception("StayOnline HTTP "+r.code());JSONObject data=new JSONObject(r.body().string());
    if(!"success".equals(data.optString("status"))){String message=data.optString("message","Fonte non disponibile");if(data.optInt("code")==429)message="La fonte richiede una verifica nel sito";throw new Exception(message);}

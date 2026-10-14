@@ -5,7 +5,7 @@ public final class Resolver234Check {
  public static void main(String[] args)throws Exception {
   String config="window.masterPlaylist={url:'https://vixcloud.co/playlist/123',token:'example',expires:1999999999};";
   String off=ScPlaylistConfig.playlist(config+"canPlayFHD:false;","https://vixcloud.co/embed/123?b=1");check(off.contains("b=1"));check(!off.contains("h=1"));check(off.contains("expires=1999999999"));
-  check(ScPlaylistConfig.playlist(config+"canPlayFHD:true;","https://vixcloud.co/embed/123").contains("h=1"));
+  check(ScPlaylistConfig.playlist(config+"canPlayFHD:true;","https://vixcloud.co/embed/123?canPlayFHD=true").contains("h=1"));
   check(!ScPlaylistConfig.playlist(config,"https://vixcloud.co/embed/123?ab=1").contains("b=1"));
   String signed="window.masterPlaylist={url:'https://vixcloud.co/playlist/123?token=original&h=0',token:'other'};canPlayFHD:true;";
   String kept=ScPlaylistConfig.playlist(signed,"https://vixcloud.co/embed/123");check(kept.contains("token=original"));check(!kept.contains("other"));check(kept.contains("h=0"));check(!kept.contains("h=1"));
