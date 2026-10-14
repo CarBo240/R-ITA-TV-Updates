@@ -31,7 +31,7 @@ public final class ExperimentalHubActivity extends Activity {
   getWindow().getDecorView().setSystemUiVisibility(5894);
   ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(0xff10151c);
   LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(28),dp(20),dp(28),dp(28));scroll.addView(content);setContentView(scroll);
-  TextView heading=text("R. ITA · LABORATORIO TEST",24);heading.setTextColor(0xff4fd4b1);add(content,heading);
+  TextView heading=text("R. ITA · LABORATORIO TEST · "+BuildConfig.VERSION_NAME+"",24);heading.setTextColor(0xff4fd4b1);add(content,heading);
   TextView help=text("Ambiente separato: cataloghi provider, ricerche e player HLS/DASH/MP4. Nessuna modifica alle impostazioni o alle riproduzioni del VOD principale.",14);help.setPadding(0,dp(10),0,dp(10));add(content,help);
   state=text("Caricamento fonti…",14);state.setTextColor(0xffc5d3dc);add(content,state);
   LinearLayout tools=new LinearLayout(this);tools.setOrientation(LinearLayout.HORIZONTAL);add(content,tools);
@@ -43,7 +43,7 @@ public final class ExperimentalHubActivity extends Activity {
   Button infinity=button("Mediaset Infinity · sito ufficiale (fallback)");add(content,infinity);infinity.setOnClickListener(v->startActivity(new Intent(this,LabInfinityActivity.class)));
   TextView providerTitle=text("PROVIDER DISPONIBILI",19);providerTitle.setPadding(0,dp(15),0,dp(8));add(content,providerTitle);
   entries=new LinearLayout(this);entries.setOrientation(1);add(content,entries);
-  Button addLab=button("Aggiungi / configura provider LAB 2.1.23");add(content,addLab);addLab.setOnClickListener(v->configureLab());
+  Button addLab=button("Aggiungi / configura provider LAB");add(content,addLab);addLab.setOnClickListener(v->configureLab());
   loadLocal();
  }
  private void loadLocal(){
@@ -67,6 +67,7 @@ public final class ExperimentalHubActivity extends Activity {
   List<VodSettings.Source> snapshot=new ArrayList<>(all);sources.clear();sources.addAll(snapshot);clearRows();message(label+" · "+sources.size()+" provider");
   appendLabProviders();
   for(VodSettings.Source s:sources){
+   if(VodLabSources.supported(s))continue;
    Button b=button(s.name+"  ·  "+s.type+"\n"+s.url);
    b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(dp(12),dp(8),dp(12),dp(8));
    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);entries.addView(b,lp);
@@ -77,7 +78,7 @@ public final class ExperimentalHubActivity extends Activity {
   String[] options="streamingcommunity".equals(s.type)?new String[]{"Catalogo SC → proxy HLS LAB", "Percorso Streaming Community 2.1.8 conservato", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Informazioni provider"}:new String[]{"Catalogo con locandine → Fonti → Player", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Ricerca testuale precedente", "Informazioni provider"};
   new AlertDialog.Builder(this).setTitle("TEST · "+s.name).setItems(options,(d,n)->{
    if("streamingcommunity".equals(s.type)){if(n==0)startActivity(new Intent(this,LabScProxyCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name));else if(n==1)startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else if(n==2)askInspect(s.url);else if(n==3)browser(s.url,s.name);else providerInfo(s);return;}
-   if(n==0){if(s.vixsrc())startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else chooseLabAdapter(s.name,s.url);}
+   if(n==0){if(VodLabSources.supported(s)){openLab(s.name,s.url,VodLabSources.kind(s.url));return;}if(s.vixsrc())startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else chooseLabAdapter(s.name,s.url);}
    else if(n==1)askInspect(s.url);
    else if(n==2)browser(s.url,s.name);
    else if(n==3)search(s);
@@ -85,12 +86,12 @@ public final class ExperimentalHubActivity extends Activity {
   }).setNegativeButton("Annulla",null).show();
  }
  private void providerInfo(VodSettings.Source s){new AlertDialog.Builder(this).setTitle(s.name).setMessage("Tipo: "+s.type+"\nURL: "+s.url+"\nI resolver del laboratorio non modificano il catalogo principale. I provider web senza API di catalogo supportata vengono esplorati nel browser TEST.").setPositiveButton("OK",null).show();}
- private static final String[] LAB_KINDS={"cb01","altadefinizione","wordpress","dle","json","eurostreaming"};
- private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1","EuroStreaming · film / VixSrc"};
+ private static final String[] LAB_KINDS={"cb01","altadefinizione","wordpress","dle","json","eurostreaming","guardaflix","guardaserie","animeworld","animesaturn","animeunity","streamingita"};
+ private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1","EuroStreaming · film / VixSrc","GuardaFlix · film","GuardaSerie · film / serie","AnimeWorld · anime","AnimeSaturn · anime","AnimeUnity · anime","StreamingIta · DooPlayer"};
  private void chooseLabAdapter(String name,String url){new AlertDialog.Builder(this).setTitle("Adattatore catalogo · "+name).setItems(LAB_LABELS,(d,n)->openLab(name,url,LAB_KINDS[n])).setNegativeButton("Annulla",null).show();}
  private void openLab(String name,String url,String adapter){startActivity(new Intent(this,LabMultiCatalogActivity.class).putExtra("lab_url",url).putExtra("lab_name",name).putExtra("lab_adapter",adapter));}
- private void appendLabProviders(){
-  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB 2.1.23 · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
+ private void appendLabProviders(){for(VodSettings.Source provider:VodSettings.sources(this))if(VodLabSources.supported(provider)){Button preset=button("Apri catalogo · "+provider.name);add(entries,preset);preset.setOnClickListener(v->openLab(provider.name,provider.url,VodLabSources.kind(provider.url)));}
+  try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
   catch(Exception e){message("Configurazioni LAB non leggibili");}
  }
  private void removeLab(String url){try{JSONArray old=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]")),next=new JSONArray();for(int i=0;i<old.length();i++)if(!url.equals(old.getJSONObject(i).optString("url")))next.put(old.getJSONObject(i));getSharedPreferences("lab211",0).edit().putString("providers",next.toString()).apply();loadLocal();}catch(Exception e){message("Eliminazione configurazione fallita");}}
