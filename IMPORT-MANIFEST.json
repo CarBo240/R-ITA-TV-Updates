@@ -1,0 +1,115 @@
+{
+  "upstream": "https://git.gay/streamflix-reborn2/streamflix.git",
+  "revision": "6dca4ea",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/MixDropExtractor.kt",
+      "upstream_sha256": "1b07a3c5887aaa9678136767b35cd75c4556c2dfa2bc485b3f70bcfb5fe002e3",
+      "imported_sha256": "16aa8c9b4b1efb03ca26c2f5e320417551d2bfad35b0494f14dd4c0ab1704414",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/VixcloudExtractor.kt",
+      "upstream_sha256": "e40ee49bce1792fea1c43c6ded26da87b1286dfd030b6fa3c6ef38e996615a2d",
+      "imported_sha256": "3850161fa8206538ef653ffaa225a707dc01c4fd28bf9d0a29743f74fcb27c8f",
+      "modifications": [
+        "Fix missing-comma fallback when url is the final playlist property"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/DroploadExtractor.kt",
+      "upstream_sha256": "0ce402c6243efffc2d838feb9ff932ca8b3781ab6814f38ad64cd1befceab20a",
+      "imported_sha256": "b8cc82a862b5f0280be3e782daf9f57a6ddb9d2d777f58221cb39104e43dce81",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/SupervideoExtractor.kt",
+      "upstream_sha256": "7f04a0ec680da9ae9802aca46e7a859a4b7eeb40cf6d083477d8098ac91ca529",
+      "imported_sha256": "ddde2f753c0dc4c09966b41bb37ee63985e0444da1de935783f7aed5aac10126",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/VoeExtractor.kt",
+      "upstream_sha256": "1ce3fcaccb25028e9716d693801d43d0607da462e4339ec089c51d5c5632b3fc",
+      "imported_sha256": "306ba1cdc02f89df6f4a59b66dc1f903e9b314aaa23b7abb280e3b78b447d2de",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/StreamtapeExtractor.kt",
+      "upstream_sha256": "02d003e40e2eb6aee576b5ea8f9f3609bf2b52bc2bf95a7a6b9c2535349e7931",
+      "imported_sha256": "9a47a3678725212b45316eceb35848e724d026378d5b4467581e6f18ee8e981f",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/VidozaExtractor.kt",
+      "upstream_sha256": "0ed331c659f5897680970c1ff3adeeab52a98af3ffbf7193e9eeee72ff663055",
+      "imported_sha256": "6e07112fc3058837b3568a73c3ecd557a29c1664198d85b67b99e19e8d4c8d68",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/DoodLaExtractor.kt",
+      "upstream_sha256": "4fa4a9f202955ef2cdbb38dd9fa3117cc4bd780d5c0586fa0c623db9191f3b34",
+      "imported_sha256": "664db58f92f60bc98e52c157072c248bbecf95c5620b72d239700509790a62c7",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/extractors/StreamWishExtractor.kt",
+      "upstream_sha256": "d5a2dce8579c533a00aa970c4bb7d8c448ec34b0303f70b9025c3f8a8cb2e07c",
+      "imported_sha256": "3217473c6e07b5b8d7d19c4967ef5ca506d657c21a5151c33135d591348dec35",
+      "modifications": [
+        "R. ITA network client/DNS/session; forbid HTTPS downgrade"
+      ]
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/utils/JsUnpacker.kt",
+      "upstream_sha256": "de739b134c4a2c3adefa5008ac495e23a1da7256e8adcba2ef1481452984ed45",
+      "imported_sha256": "de739b134c4a2c3adefa5008ac495e23a1da7256e8adcba2ef1481452984ed45",
+      "modifications": []
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/utils/DecryptHelper.kt",
+      "upstream_sha256": "265616d3dd20ed3e4dc31a22199246d394b87ff6823fccf32be7b14f668b4255",
+      "imported_sha256": "265616d3dd20ed3e4dc31a22199246d394b87ff6823fccf32be7b14f668b4255",
+      "modifications": []
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/utils/StringConverter.kt",
+      "upstream_sha256": "6ba7fa3e1af750aef55618ffb7a62d1bd1c9aeb391ef3186c4af1f75ec4dc5be",
+      "imported_sha256": "6ba7fa3e1af750aef55618ffb7a62d1bd1c9aeb391ef3186c4af1f75ec4dc5be",
+      "modifications": []
+    },
+    {
+      "path": "src/main/java/com/streamflixreborn/streamflix/models/Video.kt",
+      "upstream_sha256": "76c8618bd24fb5bf09966ce16bb5a59967b09d65750c363cb4c13e463160e6c3",
+      "imported_sha256": "76c8618bd24fb5bf09966ce16bb5a59967b09d65750c363cb4c13e463160e6c3",
+      "modifications": []
+    },
+    {
+      "path": "src/main/java/com/tanasi/retrofit_jsoup/converter/JsoupConverter.kt",
+      "upstream_sha256": "bee08f7a4837c374b9cbf63848f65a55ee26744a927a2f515432c34c8cb60af1",
+      "imported_sha256": "bee08f7a4837c374b9cbf63848f65a55ee26744a927a2f515432c34c8cb60af1",
+      "modifications": []
+    },
+    {
+      "path": "src/main/java/com/tanasi/retrofit_jsoup/converter/JsoupConverterFactory.kt",
+      "upstream_sha256": "5416b6a6afc0fb5a931b3b78965f728f0791190a7f70ffac6b271e61c3af5511",
+      "imported_sha256": "5416b6a6afc0fb5a931b3b78965f728f0791190a7f70ffac6b271e61c3af5511",
+      "modifications": []
+    }
+  ]
+}

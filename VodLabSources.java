@@ -61,11 +61,11 @@ final class VodLabSources {
    if(!CbLinkTargets.mixdrop(link))throw new Exception("Il collegamento non porta a MixDrop");
    CbMixdropResolver.Result result=CbMixdropResolver.resolve(link,selected.referer,CbMixdropResolver.USER_AGENT);
    String mime=result.url.matches("(?i).*\\.m3u8(?:\\?.*)?")?LabPipeline.HLS:LabPipeline.MP4;
-   LabPipeline.Media media=new LabPipeline.Media(result.url,mime,"","MixDrop",Collections.emptyList());
+   LabPipeline.Media media=new LabPipeline.Media(result.url,mime,"","MixDrop",Collections.emptyList(),"",it.carmine.streamplayer.lab211.PlaybackHeaders.forHost("MixDrop",""),true,result.extraBuffering);
    return new Resolved(new VodSource.Stream(media.url,media.referer,"",media.mime,Collections.emptyMap()),media);
   }
   LabPipeline.Media media=new LabPipeline(new LabHttp(),null).resolve(selected);
-  if(!java.util.Arrays.asList("MixDrop","VidXGo","Dropload","SuperVideo","VOE","StreamTape","StreamWish","DoodStream","Vidoza","AnimeWorld","AnimeSaturn","VixCloud","HTML5 pubblico").contains(media.host)&&selected.kind!=LabPipeline.SourceKind.MEDIA)throw new Exception("La destinazione non è una fonte LAB integrata");
+  if(!java.util.Arrays.asList("MixDrop","VidXGo","Dropload","SuperVideo","Supervideo","VOE","StreamTape","Streamtape","StreamWish","Streamwish","DoodStream","Vidoza","AnimeWorld","AnimeSaturn","VixCloud","HTML5 pubblico").contains(media.host)&&selected.kind!=LabPipeline.SourceKind.MEDIA)throw new Exception("La destinazione non è una fonte LAB integrata");
   return new Resolved(new VodSource.Stream(media.url,media.referer,"",media.mime,Collections.emptyMap()),media);
  }
 }

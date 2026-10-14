@@ -22,7 +22,7 @@ public final class VodNetwork {
  private static volatile OkHttpClient client;private static volatile String activeProvider="cloudflare";private static volatile boolean television;private static volatile OkHttpClient metadataClient;
  static boolean enabled(Context c){return !provider(c).equals("system");}
  static boolean television(Context c){UiModeManager ui=(UiModeManager)c.getSystemService(Context.UI_MODE_SERVICE);return (ui!=null&&ui.getCurrentModeType()==android.content.res.Configuration.UI_MODE_TYPE_TELEVISION)||c.getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK);}
- static synchronized void initialize(Context c){String wanted=provider(c);boolean tv=television(c);if(client==null||!activeProvider.equals(wanted)||television!=tv){activeProvider=wanted;television=tv;client=buildProvider(wanted,tv);metadataClient=build(false,tv).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();}}
+ static synchronized void initialize(Context c){StreamflixBridge.initialize(c);String wanted=provider(c);boolean tv=television(c);if(client==null||!activeProvider.equals(wanted)||television!=tv){activeProvider=wanted;television=tv;client=buildProvider(wanted,tv);metadataClient=build(false,tv).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();}}
  public static synchronized OkHttpClient client(){if(client==null)client=buildProvider(activeProvider,television);return client;}
  static synchronized OkHttpClient transport(HttpUrl target){if(target.host().equals("api.themoviedb.org")){if(metadataClient==null)metadataClient=build(false,television).newBuilder().callTimeout(20,TimeUnit.SECONDS).build();return metadataClient;}return client();}
  static OkHttpClient build(boolean cloudflare){return build(cloudflare,false);}

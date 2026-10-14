@@ -67,6 +67,7 @@ public final class ExperimentalHubActivity extends Activity {
   List<VodSettings.Source> snapshot=new ArrayList<>(all);sources.clear();sources.addAll(snapshot);clearRows();message(label+" · "+sources.size()+" provider");
   appendLabProviders();
   for(VodSettings.Source s:sources){
+   if(VodLabSources.supported(s))continue;
    Button b=button(s.name+"  ·  "+s.type+"\n"+s.url);
    b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(dp(12),dp(8),dp(12),dp(8));
    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);entries.addView(b,lp);
@@ -77,7 +78,7 @@ public final class ExperimentalHubActivity extends Activity {
   String[] options="streamingcommunity".equals(s.type)?new String[]{"Catalogo SC → proxy HLS LAB", "Percorso Streaming Community 2.1.8 conservato", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Informazioni provider"}:new String[]{"Catalogo con locandine → Fonti → Player", "Analizza collegamenti pagina", "Apri sito (solo confronto)", "Ricerca testuale precedente", "Informazioni provider"};
   new AlertDialog.Builder(this).setTitle("TEST · "+s.name).setItems(options,(d,n)->{
    if("streamingcommunity".equals(s.type)){if(n==0)startActivity(new Intent(this,LabScProxyCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name));else if(n==1)startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else if(n==2)askInspect(s.url);else if(n==3)browser(s.url,s.name);else providerInfo(s);return;}
-   if(n==0){if(s.vixsrc())startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else chooseLabAdapter(s.name,s.url);}
+   if(n==0){if(VodLabSources.supported(s)){openLab(s.name,s.url,VodLabSources.kind(s.url));return;}if(s.vixsrc())startActivity(new Intent(this,ExperimentalCatalogActivity.class).putExtra("lab_url",s.url).putExtra("lab_name",s.name).putExtra("lab_type",s.type));else chooseLabAdapter(s.name,s.url);}
    else if(n==1)askInspect(s.url);
    else if(n==2)browser(s.url,s.name);
    else if(n==3)search(s);
@@ -89,7 +90,7 @@ public final class ExperimentalHubActivity extends Activity {
  private static final String[] LAB_LABELS={"CB01 · articoli","AltaDefinizione · schede DLE","WordPress · articoli","DLE · shortstory","JSON LAB · schema 1","EuroStreaming · film / VixSrc","GuardaFlix · film","GuardaSerie · film / serie","AnimeWorld · anime","AnimeSaturn · anime","AnimeUnity · anime","StreamingIta · DooPlayer"};
  private void chooseLabAdapter(String name,String url){new AlertDialog.Builder(this).setTitle("Adattatore catalogo · "+name).setItems(LAB_LABELS,(d,n)->openLab(name,url,LAB_KINDS[n])).setNegativeButton("Annulla",null).show();}
  private void openLab(String name,String url,String adapter){startActivity(new Intent(this,LabMultiCatalogActivity.class).putExtra("lab_url",url).putExtra("lab_name",name).putExtra("lab_adapter",adapter));}
- private void appendLabProviders(){for(VodSettings.Source provider:VodSettings.sources(this))if(VodLabSources.supported(provider)){Button preset=button(provider.name+" · "+VodLabSources.kind(provider.url));add(entries,preset);preset.setOnClickListener(v->openLab(provider.name,provider.url,VodLabSources.kind(provider.url)));}
+ private void appendLabProviders(){for(VodSettings.Source provider:VodSettings.sources(this))if(VodLabSources.supported(provider)){Button preset=button("Apri catalogo · "+provider.name);add(entries,preset);preset.setOnClickListener(v->openLab(provider.name,provider.url,VodLabSources.kind(provider.url)));}
   try{JSONArray all=new JSONArray(getSharedPreferences("lab211",0).getString("providers","[]"));for(int i=0;i<all.length();i++){JSONObject p=all.getJSONObject(i);String name=p.getString("name"),url=p.getString("url"),adapter=p.getString("adapter");Button b=button("LAB · "+name+" · "+adapter);add(entries,b);b.setOnClickListener(v->openLab(name,url,adapter));b.setOnLongClickListener(v->{new AlertDialog.Builder(this).setTitle(name).setMessage("Eliminare questa configurazione LAB?").setPositiveButton("Elimina",(d,n)->removeLab(url)).setNegativeButton("Annulla",null).show();return true;});}}
   catch(Exception e){message("Configurazioni LAB non leggibili");}
  }

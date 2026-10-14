@@ -23,7 +23,7 @@ final class LabHlsProxy implements Closeable {
  LabHlsProxy(String referer)throws Exception{
   URI page=new URI(referer);if(!"https".equalsIgnoreCase(page.getScheme())||page.getHost()==null)throw new IOException("Referer Vix non valido");
   this.referer=referer;this.origin="https://"+page.getHost();
-  http=VodNetwork.client().newBuilder().followRedirects(true).followSslRedirects(false).callTimeout(0,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).build();
+  http=StreamflixBridge.playbackClient().newBuilder().followRedirects(true).followSslRedirects(false).callTimeout(0,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).build();
   server=new ServerSocket();server.bind(new InetSocketAddress(InetAddress.getByName("127.0.0.1"),0),8);
   pool.execute(this::accept);
  }

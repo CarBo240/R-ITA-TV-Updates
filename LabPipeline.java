@@ -14,6 +14,7 @@ public final class LabPipeline {
   default Map<String,String> playbackHeaders(String url){return Collections.emptyMap();}
   default Page getWithHeaders(String url,String referer,boolean media,Map<String,String> headers)throws Exception{return get(url,referer,media);}
   default Page postJson(String url,String body,String referer,String csrf)throws Exception {throw new Failure(Stage.CATALOG,"PUBLIC_API_UNAVAILABLE","Trasporto JSON pubblico non disponibile");}
+  default Media resolveHost(Source source)throws Exception{return null;}
   default Page head(String url,String referer)throws Exception{return null;}
   default Page postForm(String url,Map<String,String> fields,String referer)throws Exception {throw new Failure(Stage.RESOLVER,"PUBLIC_API_UNAVAILABLE","Trasporto POST pubblico non disponibile");}
  }
@@ -46,11 +47,13 @@ public final class LabPipeline {
   public Subtitle(String u,String l,String n,String m){url=u;language=l;label=n;mime=m;}
  }
  public static final class Media {
-  public final String url,mime,referer,host,refreshId;public final Map<String,String> headers;
+  public final String url,mime,referer,host,refreshId;public final boolean extraBuffering;public final Map<String,String> headers;
   public final List<Subtitle> subtitles;
   public Media(String u,String m,String r,String h,List<Subtitle> s){this(u,m,r,h,s,"");}
   public Media(String u,String m,String r,String h,List<Subtitle> s,String id){this(u,m,r,h,s,id,Collections.emptyMap());}
-  public Media(String u,String m,String r,String h,List<Subtitle> s,String id,Map<String,String> extra){url=u;mime=m;referer=r;host=h;refreshId=id;Map<String,String> context=new LinkedHashMap<>(PlaybackHeaders.forHost(h,r));context.putAll(extra);headers=Collections.unmodifiableMap(context);subtitles=Collections.unmodifiableList(new ArrayList<>(s));}
+  public Media(String u,String m,String r,String h,List<Subtitle> s,String id,Map<String,String> extra){this(u,m,r,h,s,id,extra,false);}
+  public Media(String u,String m,String r,String h,List<Subtitle> s,String id,Map<String,String> extra,boolean exactHeaders){this(u,m,r,h,s,id,extra,exactHeaders,false);}
+  public Media(String u,String m,String r,String h,List<Subtitle> s,String id,Map<String,String> extra,boolean exactHeaders,boolean bufferMore){extraBuffering=bufferMore;url=u;mime=m;referer=r;host=h;refreshId=id;Map<String,String> context=new LinkedHashMap<>(exactHeaders?Collections.emptyMap():PlaybackHeaders.forHost(h,r));context.putAll(extra);headers=Collections.unmodifiableMap(context);subtitles=Collections.unmodifiableList(new ArrayList<>(s));}
  }
  public interface CatalogAdapter {
   String name(); String search(String base,String query)throws Exception;
@@ -113,11 +116,12 @@ public final class LabPipeline {
   emit(Stage.SOURCE,"DECLARED",result.host+" · "+result.mime);Page media=transport.getWithHeaders(result.url,result.referer,true,result.headers);checked(media,true,Stage.SOURCE);
   String detected=detectedMime(media);
   if(detected.isEmpty())throw new Failure(Stage.SOURCE,"NOT_MEDIA","La risposta non contiene un manifest HLS/DASH o un file MP4 riconoscibile");
-  emit(Stage.SOURCE,"VERIFIED",detected+" · "+host(media.url));Map<String,String> context=new LinkedHashMap<>(result.headers);context.putAll(transport.playbackHeaders(media.url));return new Media(media.url,detected,result.referer,result.host,result.subtitles,result.refreshId,context);
+  emit(Stage.SOURCE,"VERIFIED",detected+" · "+host(media.url));Map<String,String> context=new LinkedHashMap<>(result.headers);context.putAll(transport.playbackHeaders(media.url));return new Media(media.url,detected,result.referer,result.host,result.subtitles,result.refreshId,context,true,result.extraBuffering);
  }
  private Media resolvePublic(Source source,Set<String> visited,int depth)throws Exception {
   if(depth>5)throw new Failure(Stage.RESOLVER,"CHAIN_LIMIT","Superati cinque passaggi pubblici verso il video");
   if(!visited.add(source.url))throw new Failure(Stage.RESOLVER,"CHAIN_CYCLE","Collegamento circolare: "+host(source.url));
+  if(source.kind==SourceKind.HOST||source.kind==SourceKind.PAGE){Media imported=transport.resolveHost(source);if(imported!=null){emit(Stage.RESOLVER,"STREAMFLIX_IMPORTED",imported.host);return imported;}}
   if(isUprotVideo(source.url)){
    emit(Stage.RESOLVER,"UPROT_PUBLIC_HEAD","Uprot · verifica redirect HTTPS con HEAD, senza conversione API");
    Page destination;try{destination=transport.head(source.url,source.referer);}catch(Failure e){throw new Failure(Stage.RESOLVER,e.code,e.getMessage());}catch(Exception e){throw new Failure(Stage.RESOLVER,"NETWORK","HEAD Uprot: "+e.getClass().getSimpleName());}

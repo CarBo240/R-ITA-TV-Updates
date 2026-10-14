@@ -1,9 +1,14 @@
-# Streamflix reference
+# Streamflix imported source
 
-Upstream: Streamflix Reborn2 / Streamflix, https://git.gay/streamflix-reborn2/streamflix.git
-Reviewed revision: 6dca4ea, 2026-10-14.
-License: Apache License 2.0 (included alongside this notice).
+Source: Streamflix Reborn2 / Streamflix contributors
+Repository: https://git.gay/streamflix-reborn2/streamflix.git
+Revision: 6dca4ea (2026-10-14)
+License: Apache License 2.0, included in LICENSE.
 
-R. ITA 2.1.35 uses independently written Java adapters based on the publicly declared provider protocols and domain alias information reviewed in that repository. Its integrations retain R. ITA networking, UI, source validation and player architecture. No upstream API credentials, private signing keys or TLS-verification disabling logic were transferred.
+This directory contains the Kotlin extraction bodies of MixDrop, VixCloud, Dropload, Supervideo, VOE, Streamtape, Vidoza, DoodStream and StreamWish, with their upstream Video model, unpack/decode helpers and Jsoup converter. JsUnpacker retains its upstream credit to https://github.com/cylonu87/JsUnpacker.
 
-Relevant upstream areas: Italian providers (CB01, StreamingCommunity, Altadefinizione01, GuardaFlix, GuardaSerie, StreamingIta, AnimeWorld, AnimeSaturn, AnimeUnity) and their associated host extractors. PlutoTV Italy is live and outside this VOD alternatives package; MaxStream intentionally excluded.
+Modifications to imported extractor files: network builders use R. ITA's selected DNS and the upstream CookieManager session contract; HTTPS downgrade remains disabled. Clients without an explicit Retrofit client are connected to this shared client. VixCloud's b=1 detection now keeps a final URL property when it has no following comma. Exact per-file upstream and imported SHA-256 hashes are in IMPORT-MANIFEST.json.
+
+Extractor.kt is the upstream abstract API with a reduced registry supplied by R. ITA. NetworkClient.kt, StreamFlixApp.kt and the R. ITA StreamflixBridge are compatibility adapters, not a second application. No trustAll client, credential/signature service, MaxStream API or global VidXGo background token loop is imported. Existing VidXGo session handling is retained.
+
+The R. ITA bridge retains the resolver's source, request headers, subtitle links and extraBuffering flag. One upstream invalid Supervideo Referer literal ("mainUrl") is omitted by the bridge; no guessed replacement header is added. R. ITA's subtitle selection remains under its player controls. The Streamflix UI, account system, recommendations and catalogue data models have not been copied.
