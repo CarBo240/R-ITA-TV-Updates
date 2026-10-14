@@ -20,7 +20,7 @@ public final class LabVidXSession implements Closeable {
  private synchronized void refresh()throws IOException {
   if(closed)throw new IOException("VIDXGO_SESSION_CLOSED");if(!failure.isEmpty())throw new IOException(failure);if(System.currentTimeMillis()<tokens.due)return;
   notifyCode("VIDXGO_TOKEN_REFRESH");String endpoint="https://v.vidxgo.co/t/"+id;
-  Request request=new Request.Builder().url(endpoint).header("User-Agent","Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").header("Referer","https://v.vidxgo.co/"+id).header("X-Cs",sid).header("Accept","application/json").build();
+  Request request=new Request.Builder().url(endpoint).header("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36").header("Referer","https://v.vidxgo.co/"+id).header("X-Cs",sid).header("Accept","application/json").build();
   try(Response response=control.newCall(request).execute()){
    if(response.code()!=200)throw new IOException("VIDXGO_REFRESH_HTTP_"+response.code());
    ByteArrayOutputStream bytes=new ByteArrayOutputStream();if(response.body()==null)throw new IOException("VIDXGO_REFRESH_EMPTY");
