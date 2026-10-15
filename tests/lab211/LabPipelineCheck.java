@@ -20,7 +20,7 @@ public final class LabPipelineCheck {
   pages.put(stream,new LabPipeline.Page(stream,206,"video/mp4",new byte[]{0,0,0,24,102,116,121,112,105,115,111,109}));
   LabPipeline pipeline=new LabPipeline((url,ref,media)->{if(!pages.containsKey(url))throw new AssertionError("Unexpected fetch "+url);return pages.get(url);},(s,c,d)->stages.add(s+":"+c));
   LabPipeline.CatalogAdapter adapter=new LabPipeline.Cb01Catalog();List<LabPipeline.Title> titles=pipeline.catalog(adapter,base,"");check(titles.size()==1,"catalog count");check(titles.get(0).poster.equals(base+"poster.jpg"),"poster URL");
-  List<LabPipeline.Source> sources=pipeline.sources(adapter,titles.get(0));check(sources.size()==1,"host source count");LabPipeline.Media media=pipeline.resolve(sources.get(0));check(media.url.equals(stream),"signed query preserved");check(media.mime.equals(LabPipeline.MP4),"validated MP4");check(media.referer.equals(host),"host referer");check(media.subtitles.size()==1&&media.subtitles.get(0).language.equals("it"),"subtitles propagated");
+  List<LabPipeline.Source> sources=pipeline.sources(adapter,titles.get(0));check(sources.size()==1,"host source count");LabPipeline.Media media=pipeline.resolve(sources.get(0));check(media.url.equals(stream),"signed query preserved");check(media.mime.equals(LabPipeline.MP4),"validated MP4");check(media.referer.isEmpty(),"MixDrop playback has no Referer");check(media.subtitles.size()==1&&media.subtitles.get(0).language.equals("it"),"subtitles propagated");
   check(stages.contains("CATALOG:TITLES")&&stages.contains("HOST_SEARCH:SOURCES")&&stages.contains("RESOLVER:ADAPTER")&&stages.contains("SOURCE:VERIFIED"),"complete phases");
   for(String[] example:new String[][]{{"MixDrop","https://mixdrop.si/e/abc","MDCore.wurl='https://cdn.example/a.mp4';"},{"MaxStream","https://maxstream.video/abc","sources:[{file:'https://cdn.example/a.m3u8'}]"},{"VOE","https://voe.sx/e/abc","sources={'hls':'https://cdn.example/a.m3u8'};"},{"StreamTape","https://streamtape.com/e/abc","<div id='robotlink'>//streamtape.com/get_video?id=abc&amp;expires=123</div>"},{"SuperVideo","https://supervideo.tv/embed-abc.html","sources:[{file:'https://cdn.example/a.m3u8'}]"},{"Vidoza","https://vidoza.net/abc","src:'https://cdn.example/a.mp4'"},{"DoodStream","https://dood.to/e/abc","<video src='https://cdn.example/a.mp4'></video>"}}){LabPipeline.HostResolver resolver=pipeline.resolver(example[1]);check(resolver.name().equals(example[0]),"dispatch "+example[0]);check(resolver.parse(page(example[1],example[2]),base).url.startsWith("https://"),"real extraction "+example[0]);}
   check(pipeline.resolver("https://evil-mixdrop.example/page").name().equals("HTML5 pubblico"),"no substring host dispatch");
@@ -118,8 +118,8 @@ public final class LabPipelineCheck {
   String aliasedMedia="https://cdn.example/movie.mp4?token=fixture";pages.put(aliasedMedia,new LabPipeline.Page(aliasedMedia,206,"video/mp4",pages.get(stream).bytes));
   LabPipeline.Media mixResult=pipeline.resolve(new LabPipeline.Source(share,"MixDrop",base));
   check(mixResult.host.equals("MixDrop")&&mixResult.url.equals(aliasedMedia),"mxdrop alias -> actual declared iframe -> radix10 wurl -> verified media");
-  check(mixResult.referer.equals(embed),"embed referer propagated to media");
-  check(stages.contains("HOST_SEARCH:HOST_EMBED"),"host embed stage logged");
+  check(mixResult.referer.isEmpty(),"MixDrop MP4 does not receive an embed referer");
+  check(stages.contains("HOST_SEARCH:EMBED_ROUTE"),"selected MixDrop link normalized to embed route");
   check(pipeline.resolver("https://mxdrop.top.evil.example/e/x").name().equals("HTML5 pubblico"),"no alias suffix forgery");
   String sun="https://maxsun623.site/freeswatcee/test",continueUrl="https://maxsun623.site/player/test";
   pages.put(sun,page(sun,"<a href='/player/test'><span>C0NTINUE</span></a>"));pages.put(continueUrl,page(continueUrl,"file:'"+stream+"'"));
@@ -132,7 +132,7 @@ public final class LabPipelineCheck {
   check(pipeline.resolver(maxmon).name().equals("MaxStream")&&LabPipeline.knownHost("maxmon683.site"),"observed numbered maxmon domain dispatches MaxStream");
   check(!LabPipeline.knownHost("maxmon683.site.evil.example")&&!LabPipeline.knownHost("maxmon.site"),"numbered MaxStream alias rejects lookalikes");
   // Public AJAX integration: first read the link page, then POST its public ID.
-  String stay="https://stayonline.pro/l/test123456/",api="https://stayonline.pro/ajax/linkView.php";
+  String stay="https://stayonline.pro/l/test123456/",api="https://stayonline.pro/ajax/linkEmbedView.php";
   Map<String,LabPipeline.Page> apiResponses=new HashMap<>();
   pages.put(stay,page(stay,"<script>var linkId = 'test123456';</script><a href='https://uprot.net/x/0'>Other link</a><a href='https://uprot.net/x/1'>Other link</a>"));
   apiResponses.put(api,page(api,"{\"status\":\"success\",\"data\":{\"value\":\"https:\\/\\/mxdrop.top\\/f\\/test123456\"}}"));
@@ -179,15 +179,15 @@ public final class LabPipelineCheck {
   String realStayShape="https://stayonline.pro/l/XNnym/",m1="https://m1xdrop.net/f/test123456";
   expectedStayReferer[0]=realStayShape;pages.put(realStayShape,page(realStayShape,"<script>var linkId = \"XNnym\";</script>"));
   apiResponses.put(api,page(api,"{\"data\":{\"value\":\""+m1+"\"}}"));
-  pages.put(m1,page("https://mxdrop.top/f/test123456","<iframe src='/e/test123456'></iframe>"));
+  pages.put(it.carmine.streamplayer.CbLinkTargets.embed(m1),page("https://mxdrop.top/f/test123456","<iframe src='/e/test123456'></iframe>"));
   check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).url.equals(aliasedMedia),"five-character StayOnline ID -> m1xdrop -> redirect mxdrop -> embed -> verified MP4");
   check(posted.get(posted.size()-1).get("id").equals("XNnym"),"provided StayOnline ID reaches public POST unchanged");
   check(pipeline.resolver(m1).name().equals("MixDrop")&&LabPipeline.classify(m1,"MixDrop")==LabPipeline.SourceKind.HOST,"m1 alias uses actual MixDrop resolver and host classification");
   check(pipeline.resolver("https://www.m1xdrop.net/e/test123456").name().equals("MixDrop"),"www alias dispatch");
   check(!LabPipeline.knownHost("m1xdrop.net.evil.example")&&!LabPipeline.knownHost("evil-m1xdrop.net"),"exact m1 alias rejects forged domains");
-  pages.put(m1,page(m1,"MDCore.wurl='"+aliasedMedia+"';"));check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).host.equals("MixDrop"),"m1 page without redirect extracts actual declaration and verifies media");
-  pages.put(m1,page(m1,"No media"));failure("NO_PUBLIC_MEDIA",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
-  pages.put(m1,new LabPipeline.Page(m1,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
+  pages.put(it.carmine.streamplayer.CbLinkTargets.embed(m1),page(m1,"MDCore.wurl='"+aliasedMedia+"';"));check(ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)).host.equals("MixDrop"),"m1 page without redirect extracts actual declaration and verifies media");
+  pages.put(it.carmine.streamplayer.CbLinkTargets.embed(m1),page(m1,"No media"));failure("NO_PUBLIC_MEDIA",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
+  pages.put(it.carmine.streamplayer.CbLinkTargets.embed(m1),new LabPipeline.Page(m1,403,"text/html",new byte[0]));failure("HTTP_403",()->ajaxPipeline.resolve(new LabPipeline.Source(realStayShape,"MixDrop",base)));
   String uprotHead="https://uprot.net/msf/test123",maxFinal="https://maxstream.video/video/test123";
   List<String> headCalls=new ArrayList<>(),getCalls=new ArrayList<>();Map<String,LabPipeline.Page> heads=new HashMap<>();
   heads.put(uprotHead,new LabPipeline.Page(maxFinal,200,"text/html",new byte[0]));
