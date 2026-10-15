@@ -26,6 +26,13 @@ final class FreetvsporSource {
   return resolveWithContext(channel,daddyHome,configuredHome,http).url;
  }
 
+ static Resolved player(Channel channel,String daddyHome,String configuredHome,Transport http)throws Exception {
+  if(!channel.id.matches("[0-9]{1,8}"))throw new IOException("Canale non valido");
+  String parent=daddyHome+"/player/embed.php?id="+URLEncoder.encode(channel.id,"UTF-8");
+  Page selector=http.get(parent,daddyHome+"/");
+  return new Resolved(selectPlayer(selector.body,selector.url,configuredHome),selector.url);
+ }
+
  static Resolved resolveWithContext(Channel channel,String daddyHome,String configuredHome,Transport http)throws Exception {
   if(!channel.id.matches("[0-9]{1,8}"))throw new IOException("Canale non valido");
   String parent=daddyHome+"/player/embed.php?id="+URLEncoder.encode(channel.id,"UTF-8");Page selector=http.get(parent,daddyHome+"/");String selected=selectPlayer(selector.body,selector.url,configuredHome);
