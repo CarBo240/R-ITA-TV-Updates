@@ -33,7 +33,7 @@ public final class VavooClient {
         public final ChannelSource source;
         Channel(String n,String c,String u){this(n,c,u,ChannelSource.VAVOO);}
         Channel(String n,String c,String u,ChannelSource s){name=n;country=c;url=u;source=s;}
-        public String key(){return source==ChannelSource.GOMSTREAM?"gomstream|"+country+"|"+url:country+"|"+name;}
+        public String key(){return source==ChannelSource.GOMSTREAM?"gomstream|"+country+"|"+url:source==ChannelSource.FREETVSPOR?"freetvspor|"+country+"|"+url:country+"|"+name;}
         public boolean isItalian(){return "Italy".equalsIgnoreCase(country.trim())||"Italia".equalsIgnoreCase(country.trim())||"IT".equalsIgnoreCase(country.trim());}
     }
     void reportPlaybackFailure(int status,String retry){guard.failure("video",status,retry);}

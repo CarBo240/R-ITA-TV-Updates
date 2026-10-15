@@ -28,17 +28,18 @@ public class MainActivity extends Activity {
     private final ExecutorService sessionWorker=Executors.newSingleThreadExecutor();
     private final ExecutorService gomWorker=Executors.newSingleThreadExecutor();
     private ChannelSource channelSource=ChannelSource.VAVOO;
-    private int catalogGeneration,gomRetries,vavooRetries;
+    private int catalogGeneration,gomRetries,freetvRetries,vavooRetries;
     private final Runnable vavooRenew=new Runnable(){public void run(){if(destroyed||!resumed)return;if(channelSource==ChannelSource.VAVOO){final VavooClient activeClient=client;sessionWorker.submit(()->{try{activeClient.renewSession();}catch(Exception ignored){}});}uiHandler.postDelayed(this,VavooClient.RENEW_INTERVAL_MS);}};
-    private List<VavooClient.Channel> gomCatalog=new ArrayList<>();
+    private List<VavooClient.Channel> gomCatalog=new ArrayList<>(),freetvCatalog=new ArrayList<>();
     private String catalogDaddyHome="";private boolean homePaused;
-    private final Runnable gomRefresh=new Runnable(){public void run(){if(destroyed||!resumed||channelSource!=ChannelSource.GOMSTREAM)return;loadCatalog(false);scheduleGomRefresh();}};
+    private final Runnable gomRefresh=new Runnable(){public void run(){if(destroyed||!resumed||channelSource==ChannelSource.VAVOO)return;loadCatalog(false);scheduleGomRefresh();}};
     private LinearLayout playerHeader,playerControls,channelPanel;
     private ListView playerList;
     private TextView playerTitle,playerEpg;
     private Button pauseButton,seekBack,seekForward;
     private PlayerView video;
     private Player engine;private AudioDelay audioDelay;
+    private androidx.media3.datasource.okhttp.OkHttpDataSource.Factory freetvHttp;private volatile String freetvReferer="";
     private Button selectChannels;
     private Spinner playerCategories;
     private CheckBox playerFavorites;
@@ -318,15 +319,15 @@ public class MainActivity extends Activity {
     }
     private void applyCatalog(List<VavooClient.Channel> result){
         channels=new ArrayList<>();for(VavooClient.Channel c:result)if(c.isItalian())channels.add(c);
-        Iterator<String> saved=favorites.iterator();while(saved.hasNext()){String key=saved.next();if(key.startsWith("gomstream|"))continue;int split=key.indexOf("|");if(split>0&&!new VavooClient.Channel("",key.substring(0,split),"").isItalian())saved.remove();}
+        Iterator<String> saved=favorites.iterator();while(saved.hasNext()){String key=saved.next();if(key.startsWith("gomstream|")||key.startsWith("freetvspor|"))continue;int split=key.indexOf("|");if(split>0&&!new VavooClient.Channel("",key.substring(0,split),"").isItalian())saved.remove();}
         prefs.edit().putStringSet("favorites",new HashSet<>(favorites)).apply();filter();if(player!=null)rebuildPlayerChoices();
     }
     protected void load(){loadCatalog(false);}
     private void chooseChannelSource(){
-        new AlertDialog.Builder(this).setTitle("Canali · scegli fonte").setSingleChoiceItems(new String[]{"Vavoo","Gomstream"},channelSource.ordinal(),(d,n)->{d.dismiss();selectSource(ChannelSource.values()[n]);list.requestFocus();}).setNegativeButton("Annulla",null).show();
+        new AlertDialog.Builder(this).setTitle("Canali · scegli fonte").setSingleChoiceItems(new String[]{"Vavoo","Gomstream","FreeTVSpor"},channelSource.ordinal(),(d,n)->{d.dismiss();selectSource(ChannelSource.values()[n]);list.requestFocus();}).setNegativeButton("Annulla",null).show();
     }
     private void editChannelUrls(){
-        new AlertDialog.Builder(this).setTitle("Canali · cambio URL").setItems(new String[]{"Vavoo","Gomstream","DNS Live"},(d,n)->{if(n==0)VavooSettings.edit(this,()->sourceSettingsChanged(ChannelSource.VAVOO));else if(n==1)GomstreamSettings.edit(this,()->sourceSettingsChanged(ChannelSource.GOMSTREAM));else LiveNetwork.settings(this,()->{});}).setNegativeButton("Annulla",null).show();
+        new AlertDialog.Builder(this).setTitle("Canali · cambio URL").setItems(new String[]{"Vavoo","Gomstream","FreeTVSpor","DNS Live"},(d,n)->{if(n==0)VavooSettings.edit(this,()->sourceSettingsChanged(ChannelSource.VAVOO));else if(n==1)GomstreamSettings.edit(this,()->sourceSettingsChanged(ChannelSource.GOMSTREAM));else if(n==2)FreetvsporSettings.edit(this,()->sourceSettingsChanged(ChannelSource.FREETVSPOR));else LiveNetwork.settings(this,()->{});}).setNegativeButton("Annulla",null).show();
     }
     private void sourceSettingsChanged(ChannelSource source){
         if(source==ChannelSource.VAVOO){client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);}
@@ -339,10 +340,14 @@ public class MainActivity extends Activity {
         channels.clear();visible.clear();guideChannel=null;filter();scheduleGomRefresh();loadCatalog(false);
     }
     private void cancelCatalog(){++catalogGeneration;if(catalogJob!=null)catalogJob.cancel(true);loading=false;reload.setEnabled(true);}
-    private boolean catalogCurrent(int request,ChannelSource source,String daddy){return !destroyed&&request==catalogGeneration&&source==channelSource&&(source!=ChannelSource.GOMSTREAM||daddy.equals(DaddyLiveSettings.home(this)));}
-    private void scheduleGomRefresh(){uiHandler.removeCallbacks(gomRefresh);if(resumed&&channelSource==ChannelSource.GOMSTREAM)uiHandler.postDelayed(gomRefresh,600000);}
+    private boolean catalogCurrent(int request,ChannelSource source,String daddy){return !destroyed&&request==catalogGeneration&&source==channelSource&&(source==ChannelSource.VAVOO||daddy.equals(DaddyLiveSettings.home(this)));}
+    private void scheduleGomRefresh(){uiHandler.removeCallbacks(gomRefresh);if(resumed&&channelSource!=ChannelSource.VAVOO)uiHandler.postDelayed(gomRefresh,600000);}
     protected List<VavooClient.Channel> fetchGomCatalog(String daddy)throws Exception {
         List<VavooClient.Channel> result=new ArrayList<>();for(GomstreamSource.Channel c:GomstreamSource.catalog(daddy,LiveNetwork.gom(this)))result.add(ChannelSource.gomstream(c));
+        Collections.sort(result,(a,b)->a.name.compareToIgnoreCase(b.name));return result;
+    }
+    protected List<VavooClient.Channel> fetchFreetvCatalog(String daddy)throws Exception {
+        List<VavooClient.Channel> result=new ArrayList<>();for(FreetvsporSource.Channel c:FreetvsporSource.catalog(daddy,LiveNetwork.freetv(this)))result.add(ChannelSource.freetvspor(c));
         Collections.sort(result,(a,b)->a.name.compareToIgnoreCase(b.name));return result;
     }
     private void loadCatalog(boolean force){
@@ -355,6 +360,13 @@ public class MainActivity extends Activity {
             catalogJob=gomWorker.submit(()->{try{List<VavooClient.Channel> result=fetchGomCatalog(daddy);runOnUiThread(()->{
                 if(!catalogCurrent(request,source,daddy))return;gomCatalog=new ArrayList<>(result);loading=false;reload.setEnabled(true);applyCatalog(result);
             });}catch(Exception e){runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);status.setText(channels.isEmpty()?"Gomstream · catalogo non disponibile. Premi Aggiorna.":"Gomstream · canali disponibili, aggiornamento non riuscito. Premi Aggiorna.");});}});return;
+        }
+        if(source==ChannelSource.FREETVSPOR){
+            if(!catalogDaddyHome.equals(daddy)){freetvCatalog.clear();catalogDaddyHome=daddy;}
+            if(!freetvCatalog.isEmpty()){applyCatalog(freetvCatalog);status.setText("FreeTVSpor · aggiornamento in corso…");}
+            catalogJob=gomWorker.submit(()->{try{List<VavooClient.Channel> result=fetchFreetvCatalog(daddy);runOnUiThread(()->{
+                if(!catalogCurrent(request,source,daddy))return;freetvCatalog=new ArrayList<>(result);loading=false;reload.setEnabled(true);applyCatalog(result);
+            });}catch(Exception e){runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);status.setText(channels.isEmpty()?"FreeTVSpor · catalogo non disponibile. Premi Aggiorna.":"FreeTVSpor · canali disponibili, aggiornamento non riuscito. Premi Aggiorna.");});}});return;
         }
         catalogJob=worker.submit(()->{
             CatalogStore.Snapshot cached=store.read();final boolean haveCache=!cached.channels.isEmpty();
@@ -383,18 +395,18 @@ public class MainActivity extends Activity {
     protected void play(VavooClient.Channel channel){
         if(player==null){zapChannels=new ArrayList<>(visible);if(zapChannels.isEmpty())zapChannels.add(channel);showPlayer();}
         if(currentChannel!=null&&currentChannel.key().equals(channel.key())&&requestedChannel==null){hideChannelPanel();showPlayerControls();return;}
-        gomRetries=0;vavooRetries=0;hideChannelPanel();requestedChannel=channel;final int generation=++playGeneration;
+        gomRetries=0;freetvRetries=0;vavooRetries=0;hideChannelPanel();requestedChannel=channel;final int generation=++playGeneration;
         ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
         buffering.setVisibility(View.VISIBLE);updatePlayerInfo();showPlayerControls();
         if(resolveJob!=null){client.cancelResolve();resolveJob.cancel(true);}
-        if(channel.source==ChannelSource.GOMSTREAM&&engine!=null)engine.stop();
+        if(channel.source!=ChannelSource.VAVOO&&engine!=null)engine.stop();
         resolveChannel(channel,generation);
     }
     protected void resolveChannel(VavooClient.Channel channel,int generation){
         resolveJob=playbackWorker.submit(()->{
             try{String url=resolveStream(channel);runOnUiThread(()->{
                 if(destroyed||generation!=playGeneration||video==null)return;
-                currentChannel=channel;requestedChannel=null;updatePlayerInfo();
+                currentChannel=channel;requestedChannel=null;if(channel.source==ChannelSource.FREETVSPOR&&freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());updatePlayerInfo();
                 engine.setMediaItem(mediaItem(channel,url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
             });}catch(Exception e){runOnUiThread(()->{if(destroyed||generation!=playGeneration)return;
                 requestedChannel=null;if(buffering!=null)buffering.setVisibility(View.GONE);updatePlayerInfo();
@@ -404,11 +416,12 @@ public class MainActivity extends Activity {
     }
     protected String resolveStream(VavooClient.Channel channel)throws Exception {
         if(channel.source==ChannelSource.GOMSTREAM)return GomstreamSource.resolve(new GomstreamSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),GomstreamSettings.home(this),LiveNetwork.gom(this));
+        if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));freetvReferer=stream.referer;return stream.url;}
         return client.resolve(channel);
     }
     static MediaItem mediaItem(VavooClient.Channel channel,String url){
         MediaItem.Builder b=new MediaItem.Builder().setUri(url).setMediaId(channel.key());
-        if(channel.source==ChannelSource.GOMSTREAM)b.setMimeType(MimeTypes.APPLICATION_M3U8).setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(18000).setMinPlaybackSpeed(1f).setMaxPlaybackSpeed(1f).build());
+        if(channel.source!=ChannelSource.VAVOO)b.setMimeType(MimeTypes.APPLICATION_M3U8).setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(18000).setMinPlaybackSpeed(1f).setMaxPlaybackSpeed(1f).build());
         return b.build();
     }
     private void showPlayer(){
@@ -461,6 +474,10 @@ public class MainActivity extends Activity {
                     final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++gomRetries;if(buffering!=null)buffering.setVisibility(View.VISIBLE);
                     uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();updatePlayerInfo();resolveChannel(retry,++playGeneration);},gomRetries*2000L);return;
                 }
+                if(currentChannel!=null&&currentChannel.source==ChannelSource.FREETVSPOR&&resumed&&freetvRetries<2){
+                    final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++freetvRetries;if(buffering!=null)buffering.setVisibility(View.VISIBLE);
+                    uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();updatePlayerInfo();resolveChannel(retry,++playGeneration);},freetvRetries*2000L);return;
+                }
                 if(currentChannel!=null&&currentChannel.source==ChannelSource.VAVOO&&resumed&&vavooRetries<1&&!accessDenied(failure)){final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++vavooRetries;uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();resolveChannel(retry,++playGeneration);},2000);return;}
                 if(buffering!=null)buffering.setVisibility(View.GONE);android.util.Log.w("RITATV","Riproduzione non riuscita",failure);
                 VavooClient.Channel failed=currentChannel;new AlertDialog.Builder(MainActivity.this).setTitle("Video non disponibile").setMessage("Il flusso è momentaneamente indisponibile o non supportato. Puoi scegliere un altro canale o riprovare.").setPositiveButton("Riprova",(d,w)->{if(failed!=null){currentChannel=null;play(failed);}}).setNegativeButton("Chiudi",null).show();}
@@ -500,10 +517,12 @@ public class MainActivity extends Activity {
         audioDelay=AudioDelay.create(this,"live");ExoPlayer.Builder builder=new ExoPlayer.Builder(this,AudioDelay.renderers(this,audioDelay));
         if(channelSource==ChannelSource.GOMSTREAM){androidx.media3.datasource.okhttp.OkHttpDataSource.Factory gomHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("R-ITA-TV/1.25");
             builder.setMediaSourceFactory(new HlsMediaSource.Factory(type->{DataSource upstream=gomHttp.createDataSource();return type==C.DATA_TYPE_MEDIA?new GomstreamDataSource(upstream):type==C.DATA_TYPE_MANIFEST?new GomstreamManifestDataSource(upstream):upstream;}));
+        }else if(channelSource==ChannelSource.FREETVSPOR){freetvHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").setDefaultRequestProperties(freetvHeaders());builder.setMediaSourceFactory(new HlsMediaSource.Factory(freetvHttp));
         }else builder.setMediaSourceFactory(new DefaultMediaSourceFactory(http).setLoadErrorHandlingPolicy(new StreamErrorPolicy(client)));
         ExoPlayer p=builder.build();
         p.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),true);p.setHandleAudioBecomingNoisy(true);p.setTrackSelectionParameters(p.getTrackSelectionParameters().buildUpon().setPreferredAudioLanguage("it").build());return p;
     }
+    private Map<String,String> freetvHeaders(){String referer=freetvReferer.isEmpty()?FreetvsporSettings.home(this)+"/":freetvReferer;Map<String,String> headers=new LinkedHashMap<>();headers.put("Referer",referer);try{java.net.URI u=new java.net.URI(referer);headers.put("Origin",new java.net.URI(u.getScheme(),null,u.getHost(),u.getPort(),null,null,null).toString());}catch(Exception ignored){}return headers;}
     private void rebuildPlayerChoices(){
         if(playerList==null)return;List<VavooClient.Channel> source=channels.isEmpty()?new ArrayList<>(zapChannels):channels;playerVisible=new ArrayList<>();
         for(VavooClient.Channel c:source){if(!c.isItalian())continue;if(!"Tutti".equals(playerCategory)&&!playerCategory.equals(ChannelCategories.of(c)))continue;if(playerFavorites!=null&&playerFavorites.isChecked()&&!favorites.contains(c.key()))continue;playerVisible.add(c);}
@@ -601,8 +620,8 @@ public class MainActivity extends Activity {
     }
     private void openTvSearch(){org.json.JSONArray data=new org.json.JSONArray();for(VavooClient.Channel c:channels)try{data.put(new org.json.JSONObject().put("name",c.name).put("key",c.key()));}catch(Exception ignored){}startActivityForResult(new Intent(this,TvSearchActivity.class).putExtra("channels",data.toString()).putExtra("query",search.getText().toString().trim()),203);}
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==203&&result==RESULT_OK&&data!=null){String key=data.getStringExtra("channelKey");for(VavooClient.Channel c:channels)if(c.key().equals(key)){play(c);break;}}}
-    @Override protected void onResume(){super.onResume();if(themeAtCreate!=UiTheme.selected(this)&&root!=null){recreate();return;}homeBackArmed=false;resumed=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.postDelayed(vavooRenew,VavooClient.RENEW_INTERVAL_MS);long restored=getSharedPreferences("backup",0).getLong("restoredAt",0);if(restored!=seenBackup){seenBackup=restored;favorites=new HashSet<>(prefs.getStringSet("favorites",new HashSet<>()));selectedCategory=prefs.getString("category","Tutti");int categoryIndex=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);categories.setSelection(Math.max(0,categoryIndex));client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);gomCatalog.clear();cancelCatalog();ChannelSource updated=ChannelSource.saved(this);if(updated!=channelSource)selectSource(updated);else{filter();loadCatalog(true);}epg=new EpgStore(this);loadEpg(true);}if(engine!=null&&resumePlayback)engine.play();
-        if(channelSource==ChannelSource.GOMSTREAM&&homePaused){if(!catalogDaddyHome.equals(DaddyLiveSettings.home(this))){cancelCatalog();gomCatalog.clear();channels.clear();guideChannel=null;filter();}loadCatalog(false);}homePaused=false;scheduleGomRefresh();}
+    @Override protected void onResume(){super.onResume();if(themeAtCreate!=UiTheme.selected(this)&&root!=null){recreate();return;}homeBackArmed=false;resumed=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.postDelayed(vavooRenew,VavooClient.RENEW_INTERVAL_MS);long restored=getSharedPreferences("backup",0).getLong("restoredAt",0);if(restored!=seenBackup){seenBackup=restored;favorites=new HashSet<>(prefs.getStringSet("favorites",new HashSet<>()));selectedCategory=prefs.getString("category","Tutti");int categoryIndex=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);categories.setSelection(Math.max(0,categoryIndex));client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);gomCatalog.clear();freetvCatalog.clear();cancelCatalog();ChannelSource updated=ChannelSource.saved(this);if(updated!=channelSource)selectSource(updated);else{filter();loadCatalog(true);}epg=new EpgStore(this);loadEpg(true);}if(engine!=null&&resumePlayback)engine.play();
+        if(channelSource!=ChannelSource.VAVOO&&homePaused){if(!catalogDaddyHome.equals(DaddyLiveSettings.home(this))){cancelCatalog();gomCatalog.clear();freetvCatalog.clear();channels.clear();guideChannel=null;filter();}loadCatalog(false);}homePaused=false;scheduleGomRefresh();}
     @Override protected void onPause(){resumed=false;homePaused=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.removeCallbacks(gomRefresh);if(engine!=null){resumePlayback=engine.getPlayWhenReady();engine.pause();}super.onPause();}
     @Override protected void onDestroy(){destroyed=true;playGeneration++;uiHandler.removeCallbacksAndMessages(null);worker.shutdownNow();gomWorker.shutdownNow();playbackWorker.shutdownNow();guideWorker.shutdownNow();sessionWorker.shutdownNow();if(artwork!=null)artwork.close();closePlayerViews();super.onDestroy();}
 }
