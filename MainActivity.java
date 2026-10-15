@@ -1,114 +1,648 @@
-package com.rita.eventilive;
+package it.carmine.streamplayer;
 
-import android.app.*;import android.os.*;import android.content.*;import android.net.Uri;import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;import android.view.*;import android.webkit.*;import android.widget.*;
-import android.text.*;import androidx.webkit.*;import org.json.*;
-import java.io.*;import java.net.*;import java.nio.charset.StandardCharsets;import java.util.*;import java.util.concurrent.*;import java.util.zip.*;
+import android.app.*;
+import android.os.*;
+import android.content.*;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.net.Uri;
+import android.view.*;
+import android.widget.*;
+import android.text.*;
+import androidx.media3.common.*;
+import androidx.media3.exoplayer.*;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.ui.PlayerView;
+import androidx.media3.ui.AspectRatioFrameLayout;
+import java.util.*;
+import java.util.concurrent.*;
 
-/** Standalone Live module; its catalog and playback pipeline have no Gecko dependency. */
 public class MainActivity extends Activity {
- static final int BG=0xff151619,PANEL=0xff202125,AMBER=0xfff2b245,TEXT=0xfff4f3ef;
- final Handler main=new Handler(Looper.getMainLooper());final ExecutorService io=Executors.newFixedThreadPool(3);
- private String daddyUA;private final List<String> daddyAdDomains=new ArrayList<>();private boolean webFullscreen,customPreviousFullscreen;private Button webFullButton;private View resolverCover;FrameLayout browserBox;TextView status;WebView web;Run current;RemotePointer pointer;
- private LinearLayout root,catalog,top;private EditText search;private Spinner categories;private CheckBox italian;
- private ListView list;private final List<Entry> entries=new ArrayList<>(),visible=new ArrayList<>();
- private final List<Run> runs=new ArrayList<>();private final Set<String> mediaOrigins=ConcurrentHashMap.newKeySet();
- private boolean daddy=false,channels=false,destroyed=false,playing=false,tools=false;private long generation=0;
- private String sourceFilter="",monitor;private String daddyPlaybackUrl,daddyParent;private String daddySelectionHtml;private Map<String,String> daddySelectionHeaders=Collections.emptyMap();private int daddyPlayerNumber,daddyStartupRetries;private long playerChoiceGeneration;private boolean fullPlayer;private Entry selected;private byte[] exportBytes;
- static final class Entry {String title,detail,category,url,channel;List<Entry> sources;boolean italian;Entry(String t,String d,String c,String u,boolean it){title=t;detail=d;category=c;url=u;italian=it;}}
- public static final class Run {public final String engine,url,title;public final boolean daddy;final long start=System.currentTimeMillis();final JSONArray entries=new JSONArray();int dropped;boolean playingObserved;Run(String e,Entry item,boolean d){engine=e;url=item.url;title=item.title;daddy=d;}}
- @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);monitor=asset("monitor.js");daddyUA=WebSettings.getDefaultUserAgent(this);try{JSONArray domains=new JSONObject(asset("daddy-ad-domains.json")).getJSONArray("domains");for(int n=0;n<domains.length();n++)daddyAdDomains.add(domains.getString(n));}catch(Exception ignored){}buildUi();Intent i=getIntent();if(i.hasExtra("dns_cloudflare"))getSharedPreferences("dns_settings",0).edit().putBoolean("cloudflare",i.getBooleanExtra("dns_cloudflare",false)).apply();daddy="daddy".equals(i.getStringExtra("section"));refresh();}
- int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
- TextView label(String s,int size){TextView v=new TextView(this);v.setText(s);v.setTypeface(android.graphics.Typeface.createFromAsset(getAssets(),"inter.ttf"));v.setTextSize(size);v.setTextColor(TEXT);v.setPadding(dp(12),dp(7),dp(12),dp(7));return v;}
- Button button(String title,Runnable action){Button b=new Button(this);b.setText(title);b.setTypeface(android.graphics.Typeface.createFromAsset(getAssets(),"inter.ttf"));b.setTextSize(14);b.setTextColor(TEXT);b.setAllCaps(false);b.setMinHeight(dp(48));b.setPadding(dp(14),dp(4),dp(14),dp(4));b.setBackground(shape(PANEL));b.setOnFocusChangeListener((v,f)->{b.setBackground(shape(f?AMBER:PANEL));b.setTextColor(f?BG:TEXT);});b.setOnClickListener(v->action.run());return b;}
- GradientDrawable shape(int color){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(9));d.setStroke(dp(1),color==AMBER?AMBER:0xff393c43);return d;}
- private void buildUi(){root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(BG);root.setPadding(dp(10),dp(8),dp(10),dp(8));setContentView(root);root.setOnApplyWindowInsetsListener((v,insets)->{int l=insets.getSystemWindowInsetLeft(),t=insets.getSystemWindowInsetTop(),r=insets.getSystemWindowInsetRight(),b=insets.getSystemWindowInsetBottom();if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars());l=bars.left;t=bars.top;r=bars.right;b=bars.bottom;}if(fullPlayer)root.setPadding(0,0,0,0);else root.setPadding(dp(10)+l,dp(8)+t,dp(10)+r,dp(8)+b);return insets;});root.requestApplyInsets();
-  top=new LinearLayout(this);HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);hs.addView(top);root.addView(hs);
-  top.addView(label("R. ITA TV  •  EVENTI",22));top.addView(button("SportOnline",()->section(false,false)));top.addView(button("Daddy Live",()->section(true,false)));top.addView(button("Impostazioni",this::settings));
-  status=label("Caricamento…",13);status.setContentDescription("Stato e menu del player");status.setOnClickListener(v->{if(playing)playbackMenu();});root.addView(status);catalog=new LinearLayout(this);catalog.setOrientation(1);root.addView(catalog,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout row=new LinearLayout(this);catalog.addView(row);search=new EditText(this);search.setSingleLine(true);search.setTextColor(TEXT);search.setHintTextColor(0xffa0a0a0);search.setHint("Cerca evento o canale");row.addView(search,new LinearLayout.LayoutParams(0,dp(52),1));row.addView(button("Aggiorna",this::refresh));row.addView(button("Eventi / Canali",()->{if(daddy)section(true,!channels);else Toast.makeText(this,"SportOnline: calendario eventi",0).show();}));
-  LinearLayout filters=new LinearLayout(this);catalog.addView(filters);categories=new Spinner(this);filters.addView(categories,new LinearLayout.LayoutParams(0,dp(48),1));italian=new CheckBox(this);italian.setText("Italiani");italian.setTextColor(TEXT);filters.addView(italian);
-  list=new ListView(this);list.setDividerHeight(dp(6));GradientDrawable focus=shape(0x3340331e);focus.setStroke(dp(2),AMBER);list.setSelector(focus);list.setDrawSelectorOnTop(true);catalog.addView(list,new LinearLayout.LayoutParams(-1,0,1));list.setOnItemClickListener((p,v,n,id)->{selected=visible.get(n);choose(selected);});
-  search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int a,int c,int f){}public void onTextChanged(CharSequence s,int a,int b,int c){filter();}public void afterTextChanged(Editable e){}});italian.setOnCheckedChangeListener((v,c)->filter());
-  categories.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?> a){}public void onItemSelected(AdapterView<?> a,View v,int n,long id){sourceFilter=String.valueOf(a.getItemAtPosition(n));filter();}});
-  browserBox=new FrameLayout(this);browserBox.setBackgroundColor(Color.BLACK);root.addView(browserBox,new LinearLayout.LayoutParams(-1,0,1));browserBox.setVisibility(View.GONE);
- }
- private void section(boolean d,boolean c){playerChoiceGeneration++;daddyPlaybackUrl=null;daddyParent=null;stopPlayback();daddy=d;channels=c;entries.clear();filter();search.setText("");sourceFilter="";refresh();}
- private String home(){return getPreferences(0).getString(daddy?"daddyUrl":"eventsUrl",daddy?DaddyLiveSource.HOME:"https://sportsonline.st/");}
- private void refresh(){long stamp=++generation;boolean d=daddy,c=channels;String home=home();status.setText((d?"Daddy Live • ":"Eventi • ")+"aggiornamento…");
-  String cacheName=d?(c?"daddy-channels.json":"daddy-events.json"):"events.txt";File cache=new File(getFilesDir(),cacheName);
-  try{String cached=cache.isFile()?new String(readBytes(new FileInputStream(cache),4*1024*1024),StandardCharsets.UTF_8):d?null:asset("events-seed.txt");if(cached!=null)showCatalog(parse(cached,d,c,home));}catch(Exception ignored){}
-  io.execute(()->{try{HttpURLConnection conn=DnsTransport.connection(this,null,home+(d?(c?"/cache/channels.json":"/player/tv1.json"):""));String body;try{conn.setRequestProperty("User-Agent",NativeFetchClient.UA);conn.setConnectTimeout(15000);conn.setReadTimeout(20000);if(conn.getResponseCode()!=200)throw new IOException("HTTP "+conn.getResponseCode());body=new String(readBytes(conn.getInputStream(),4*1024*1024),StandardCharsets.UTF_8);}finally{conn.disconnect();}
-   List<Entry> data=parse(body,d,c,home);if(data.isEmpty())throw new IOException("Elenco vuoto o formato non riconosciuto");main.post(()->{if(destroyed||stamp!=generation)return;showCatalog(data);status.setText((d?"Daddy Live":"Eventi")+" • "+data.size()+" voci • aggiornato");io.execute(()->{try(FileOutputStream out=new FileOutputStream(cache)){out.write(body.getBytes(StandardCharsets.UTF_8));}catch(Exception ignored){}});});
-  }catch(Exception e){main.post(()->{if(!destroyed&&stamp==generation)status.setText("Aggiornamento non riuscito: "+e.getMessage()+" • elenco salvato, se disponibile");});}});
- }
- private List<Entry> parse(String data,boolean d,boolean c,String h)throws Exception {List<Entry> out=new ArrayList<>();if(!d){for(EventCatalog.Event event:EventCatalog.group(FeedParser.parse(data))){
-   String timing=EventCatalog.italianTiming(event.day,event.time),category=EventCatalog.italianDay(event.day);Entry grouped=new Entry(event.title,timing+" • "+event.sources.size()+" canali",category,event.sources.get(0).url,event.italian());grouped.sources=new ArrayList<>();
-   for(FeedParser.Entry e:event.sources){Entry source=new Entry(e.title,EventCatalog.italianTiming(e.day,e.time)+" • "+EventCatalog.channel(e)+" • "+e.language,category,e.url,e.language.toUpperCase(Locale.ROOT).contains("ITALIAN"));source.channel=EventCatalog.channel(e)+" • "+e.language;grouped.sources.add(source);}
-   if(grouped.sources.size()==1)grouped.detail=grouped.sources.get(0).detail;out.add(grouped);
-  }}
-  else for(DaddyLiveSource.Item e:c?DaddyLiveSource.parseChannels(data):DaddyLiveSource.parseEvents(data))for(DaddyLiveSource.Link l:e.links)out.add(new Entry(e.title+" • "+l.name,e.timing()+" • "+e.category,e.category,l.embedUrl(h),e.italian()));return out;}
- private void showCatalog(List<Entry> data){entries.clear();entries.addAll(data);List<String> values=new ArrayList<>();values.add("Tutte le categorie");for(Entry e:data)if(!values.contains(e.category))values.add(e.category);ArrayAdapter<String> a=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,values);a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);categories.setAdapter(a);filter();}
- private void filter(){if(list==null)return;visible.clear();String q=search.getText().toString().toLowerCase(Locale.ROOT);for(Entry e:entries)if((!italian.isChecked()||e.italian)&&(sourceFilter.isEmpty()||sourceFilter.startsWith("Tutte")||sourceFilter.equals(e.category))&&(e.title+e.detail).toLowerCase(Locale.ROOT).contains(q))visible.add(e);
-  list.setAdapter(new BaseAdapter(){public int getCount(){return visible.size();}public Object getItem(int n){return visible.get(n);}public long getItemId(int n){return n;}public View getView(int n,View old,android.view.ViewGroup parent){Entry e=visible.get(n);LinearLayout item=new LinearLayout(MainActivity.this);item.setOrientation(0);item.setGravity(Gravity.CENTER_VERTICAL);item.setPadding(dp(8),dp(5),dp(8),dp(5));item.setBackground(shape(PANEL));TextView icon=label(SportIcons.forTitle(e.title),25);icon.setGravity(Gravity.CENTER);item.addView(icon,new LinearLayout.LayoutParams(dp(56),-1));LinearLayout words=new LinearLayout(MainActivity.this);words.setOrientation(1);words.addView(label(e.title,17));TextView detail=label(e.detail,12);detail.setTextColor(0xffb4b5ba);words.addView(detail);item.addView(words,new LinearLayout.LayoutParams(0,-2,1));item.setOnFocusChangeListener((v,f)->item.setBackground(shape(f?0xff60451e:PANEL)));return item;}});
- }
- private void choose(Entry e){if(!daddy&&e.sources!=null){if(e.sources.size()==1){selected=e.sources.get(0);choose(selected);return;}String[] options=new String[e.sources.size()];for(int n=0;n<options.length;n++)options[n]=e.sources.get(n).channel;
-  new AlertDialog.Builder(this).setTitle(e.title+" • scegli canale").setItems(options,(d,n)->{selected=e.sources.get(n);choose(selected);}).setNegativeButton("Annulla",null).show();return;}daddyStartupRetries=0;daddyPlaybackUrl=null;daddyParent=null;playerChoiceGeneration++;new AlertDialog.Builder(this).setTitle(e.title).setItems(new String[]{"Guarda • Player interno","Guarda nella WebView"},(d,n)->start(n==0?InternalPlayer.MODE:"WebView assistita")).setNegativeButton("Annulla",null).show();}
- void start(String mode){if(selected==null)return;if(daddy&&InternalPlayer.MODE.equals(mode)&&daddyPlaybackUrl==null){chooseDaddyPlayer();return;}stopPlayback();playing=true;tools=false;catalog.setVisibility(View.GONE);browserBox.setVisibility(View.VISIBLE);top.setVisibility(View.GONE);Entry playback=daddy&&InternalPlayer.MODE.equals(mode)?new Entry(selected.title+" • Player "+daddyPlayerNumber,selected.detail,selected.category,selected.url,selected.italian):selected;current=new Run(mode,playback,daddy);synchronized(runs){runs.add(current);if(runs.size()>20)runs.remove(0);}Run r=current;mediaOrigins.clear();if(daddy&&InternalPlayer.MODE.equals(mode))log(r,"daddy.playerSelected",obj("number",daddyPlayerNumber,"url",daddyPlaybackUrl,"parent",daddyParent));DnsTransport.record(this,r);InternalPlayer.arm(this,r);
-  if(daddy&&InternalPlayer.MODE.equals(mode)){resolveDaddy(r,mode);return;}openBrowser(mode,r);
- }
- String daddyUiScript(){return asset("daddy-ui.js");}
- String daddyUserAgent(){return daddyUA;}
- private void resolveDaddy(Run r,String mode){showResolverCover("Ricerca del flusso • Player "+daddyPlayerNumber);String source=daddyPlaybackUrl,parent=daddyParent;io.execute(()->{try{DaddyResolver.Result result=DaddyResolver.resolve(source,parent,(url,referer)->{HttpURLConnection c=DnsTransport.connection(this,r,url);try{c.setUseCaches(false);c.setRequestProperty("Cache-Control","no-cache");c.setConnectTimeout(10000);c.setReadTimeout(25000);c.setRequestProperty("User-Agent",daddyUA);if(referer!=null)c.setRequestProperty("Referer",referer);String cookie=android.webkit.CookieManager.getInstance().getCookie(url);if(cookie!=null)c.setRequestProperty("Cookie",cookie);int code=c.getResponseCode();log(r,"daddy.resolvePage",obj("url",url,"status",code));if(code!=200)throw new IOException("HTTP "+code);for(Map.Entry<String,List<String>> h:c.getHeaderFields().entrySet())if(h.getKey()!=null&&h.getKey().equalsIgnoreCase("Set-Cookie"))for(String value:h.getValue())android.webkit.CookieManager.getInstance().setCookie(url,value);return new DaddyResolver.Page(c.getURL().toString(),new String(readBytes(c.getInputStream(),4*1024*1024),StandardCharsets.UTF_8));}finally{c.disconnect();}});main.post(()->{if(!destroyed&&current==r)InternalPlayer.direct(this,r,result);});}catch(Exception error){log(r,"daddy.directFallback",obj("message",error.toString()));main.post(()->{if(!destroyed&&current==r){dismissResolverCover();openBrowser(mode,r);}});}});}
- private void showResolverCover(String message){dismissResolverCover();LinearLayout cover=new LinearLayout(this);cover.setOrientation(1);cover.setGravity(Gravity.CENTER);cover.setBackgroundColor(BG);cover.addView(new ProgressBar(this));cover.addView(label(message,19));cover.addView(button("Guarda nella WebView",()->start("WebView assistita")));resolverCover=cover;browserBox.addView(cover,new FrameLayout.LayoutParams(-1,-1));}
- private void openBrowser(String mode,Run r){
-  String pageMonitor=r.daddy?asset("daddy-ui.js")+"\n"+asset("daddy-monitor.js"):monitor;
-  web=new WebView(this);WebView w=web;if(r.daddy)w.addJavascriptInterface(new Object(){@JavascriptInterface public void toggleFullscreen(){main.post(()->{if(current==r&&web==w&&!InternalPlayer.MODE.equals(r.engine))toggleWebFullscreen();});}},"RitaDaddyUi");browserBox.addView(w,new FrameLayout.LayoutParams(-1,-1));WebSettings s=w.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setMediaPlaybackRequiresUserGesture(false);s.setUserAgentString(r.daddy?daddyUA:NativeFetchClient.UA);s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setSupportMultipleWindows(true);android.webkit.CookieManager.getInstance().setAcceptCookie(true);android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(w,true);
-  w.setWebChromeClient(new WebChromeClient(){public boolean onCreateWindow(WebView v,boolean d,boolean gesture,Message m){log(r,"popup.blocked",obj());return false;}public void onPermissionRequest(PermissionRequest p){p.deny();}public void onShowCustomView(View v,CustomViewCallback cb){if(custom!=null){cb.onCustomViewHidden();return;}custom=v;customCallback=cb;if(r.daddy){customPreviousFullscreen=webFullscreen;setWebFullscreen(true);}browserBox.addView(v,new FrameLayout.LayoutParams(-1,-1));if(webFullButton!=null)webFullButton.bringToFront();}public void onHideCustomView(){hideCustom();}});
-  boolean bridge=WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);if(bridge){WebViewCompat.addWebMessageListener(w,"RitaDiag",Collections.singleton("*"),(view,msg,origin,mainFrame,reply)->{if(current!=r)return;try{JSONObject o=new JSONObject(msg.getData());String kind=o.optString("kind","js");if(kind.equals("ui.fullscreen.request")&&r.daddy&&mainFrame&&view==web&&Objects.equals(origin.getHost(),Uri.parse(r.url).getHost())){toggleWebFullscreen();return;}if(kind.equals("media.found")||kind.equals("resolver.media.found"))mediaOrigins.add(origin.toString());log(r,kind,o);}catch(Exception ignored){}});if(WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT))WebViewCompat.addDocumentStartJavaScript(w,AudioScript.forRun(pageMonitor,r),Collections.singleton("*"));}
-  final String selectorHtml=daddy&&InternalPlayer.MODE.equals(mode)?daddySelectionHtml:null;final Map<String,String> selectorHeaders=daddySelectionHeaders;w.setWebViewClient(new WebViewClient(){public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest req){if(selectorHtml!=null&&req.isForMainFrame()&&req.getUrl().toString().equals(r.url)){log(r,"daddy.selector",obj("number",daddyPlayerNumber,"parentPreserved",true));return new WebResourceResponse("text/html","UTF-8",200,"OK",selectorHeaders,new ByteArrayInputStream(DaddyWeb.withUi(MainActivity.this,selectorHtml).getBytes(StandardCharsets.UTF_8)));}WebResourceResponse daddyPage=DaddyWeb.selector(MainActivity.this,r,req);if(daddyPage!=null)return daddyPage;if(blocked(req.getUrl().getHost()))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));return NativeFetchClient.intercept(MainActivity.this,r,req);}public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest req){if(!"https".equalsIgnoreCase(req.getUrl().getScheme())||blocked(req.getUrl().getHost()))return true;if(req.isForMainFrame()){String h=req.getUrl().getHost(),expected=Uri.parse(r.url).getHost();return h==null||!h.equalsIgnoreCase(expected);}return false;}
-   public void onPageFinished(WebView v,String u){if(r.daddy||(bridge&&!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)))v.evaluateJavascript(AudioScript.forRun(pageMonitor,r),null);status.setText(r.title+(InternalPlayer.MODE.equals(mode)?" • apertura player…":" • WebView"));if(r.daddy&&webFullscreen&&current==r)setWebFullscreen(true);}
-   public void onReceivedError(WebView v,WebResourceRequest req,WebResourceError e){log(r,"network.error",obj("url",req.getUrl().toString(),"mainFrame",req.isForMainFrame(),"code",e.getErrorCode(),"message",e.getDescription().toString()));if(req.isForMainFrame())status.setText("Pagina non caricata • "+e.getDescription());}});
-  pointer=new RemotePointer(this,w);browserBox.addView(pointer,new FrameLayout.LayoutParams(-1,-1));if(r.daddy&&!InternalPlayer.MODE.equals(mode)){webFullButton=button("⛶",this::toggleWebFullscreen);webFullButton.setFocusable(false);webFullButton.setContentDescription("Schermo intero");FrameLayout.LayoutParams fullParams=new FrameLayout.LayoutParams(dp(64),dp(48),Gravity.TOP|Gravity.RIGHT);fullParams.setMargins(dp(6),dp(6),dp(6),dp(6));browserBox.addView(webFullButton,fullParams);}status.setText(r.title+" • caricamento…");if(daddy&&InternalPlayer.MODE.equals(mode)){LinearLayout cover=new LinearLayout(this);cover.setOrientation(1);cover.setGravity(Gravity.CENTER);cover.setBackgroundColor(BG);cover.addView(new ProgressBar(this));cover.addView(label("Apertura Player "+daddyPlayerNumber+"…",19));cover.addView(button("Guarda nella WebView",()->start("WebView assistita")));resolverCover=cover;browserBox.addView(cover,new FrameLayout.LayoutParams(-1,-1));}w.loadUrl(r.url);
- }
- boolean isDaddyMediaOrigin(String ref){try{return current!=null&&current.daddy&&(mediaOrigins.contains(new URI(ref).getScheme()+"://"+new URI(ref).getAuthority())||Objects.equals(Uri.parse(ref).getHost(),Uri.parse(current.url).getHost())||(daddyParent!=null&&Objects.equals(Uri.parse(ref).getHost(),Uri.parse(daddyParent).getHost())));}catch(Exception e){return false;}}
- private boolean blocked(String h){if(h==null)return false;String x=h.toLowerCase(Locale.ROOT);if(daddy)for(String d:daddyAdDomains)if(x.equals(d)||x.endsWith("."+d))return true;return x.equals("adsco.re")||x.endsWith(".adsco.re")||x.equals("adexchangerapid.com")||x.endsWith(".intellipopup.com")||x.equals("intellipopup.com")||x.endsWith(".clypeiescapes.com")||x.endsWith(".fritsimoons.cyou");}
- private View custom;private WebChromeClient.CustomViewCallback customCallback;
- private void hideCustom(){if(custom!=null){browserBox.removeView(custom);custom=null;WebChromeClient.CustomViewCallback cb=customCallback;customCallback=null;if(cb!=null)cb.onCustomViewHidden();if(current!=null&&current.daddy&&!InternalPlayer.MODE.equals(current.engine))setWebFullscreen(customPreviousFullscreen);}}
- void stopPlayback(){InternalPlayer.release(this);hideCustom();webFullscreen=false;webFullButton=null;setPlayerFullscreen(false);if(web!=null){web.stopLoading();web.destroy();web=null;}pointer=null;resolverCover=null;if(browserBox!=null){browserBox.removeAllViews();browserBox.setVisibility(View.GONE);}if(catalog!=null)catalog.setVisibility(View.VISIBLE);if(top!=null)top.setVisibility(View.VISIBLE);playing=false;current=null;}
- private void settings(){new AlertDialog.Builder(this).setTitle("R. ITA Eventi • 1.6").setItems(new String[]{"DNS • "+(DnsTransport.enabled(this)?"Cloudflare":"Automatico"),"Cambia URL "+(daddy?"Daddy Live":"Eventi"),"Esporta diagnostica","Apri URL manuale"},(d,n)->{if(n==0)dns();else if(n==1)urlSettings();else if(n==2)export();else manual();}).setNegativeButton("Chiudi",null).show();}
- private void dns(){new AlertDialog.Builder(this).setTitle("DNS").setSingleChoiceItems(new String[]{"Automatico • dispositivo","Cloudflare • DNS over HTTPS"},DnsTransport.enabled(this)?1:0,(d,n)->{stopPlayback();getSharedPreferences("dns_settings",0).edit().putBoolean("cloudflare",n==1).apply();d.dismiss();refresh();}).setNegativeButton("Annulla",null).show();}
- private void urlSettings(){EditText field=new EditText(this);field.setSingleLine(true);field.setText(home());new AlertDialog.Builder(this).setTitle("Indirizzo HTTPS").setView(field).setPositiveButton("Salva",(d,n)->{String u=field.getText().toString().trim();if(valid(u)){getPreferences(0).edit().putString(daddy?"daddyUrl":"eventsUrl",u.replaceAll("/+$",daddy?"":"/")).apply();entries.clear();refresh();}else Toast.makeText(this,"URL HTTPS non valido",0).show();}).setNeutralButton("Ripristina",(d,n)->{getPreferences(0).edit().remove(daddy?"daddyUrl":"eventsUrl").apply();refresh();}).setNegativeButton("Annulla",null).show();}
- private void manual(){EditText f=new EditText(this);f.setSingleLine(true);new AlertDialog.Builder(this).setTitle("URL HTTPS").setView(f).setPositiveButton("Apri",(d,n)->{String u=f.getText().toString().trim();if(valid(u)){selected=new Entry("URL manuale","","",u,false);choose(selected);}}).setNegativeButton("Annulla",null).show();}
- static boolean valid(String u){try{URI x=new URI(u);return "https".equalsIgnoreCase(x.getScheme())&&x.getHost()!=null&&x.getUserInfo()==null;}catch(Exception e){return false;}}
- void dismissResolverCover(){if(resolverCover!=null){browserBox.removeView(resolverCover);resolverCover=null;}}
- void onNoStream(Run r){if(current!=r)return;status.setText("Nessun flusso rilevato • prova un altro player o WebView");if(r.daddy)new AlertDialog.Builder(this).setTitle("Player "+daddyPlayerNumber).setMessage("Non è stato rilevato un flusso riproducibile nel player interno.").setPositiveButton("Altro player",(d,n)->{daddyPlaybackUrl=null;start(InternalPlayer.MODE);}).setNeutralButton("WebView",(d,n)->start("WebView assistita")).setNegativeButton("Chiudi",(d,n)->stopPlayback()).show();}
- void showPlaybackMenu(){playbackMenu();}
- private void playbackMenu(){List<String> labels=new ArrayList<>(Arrays.asList(InternalPlayer.MODE.equals(current.engine)?"Guarda nella WebView":"Passa al player interno","Cursore freccia • attiva/disattiva","Chiudi WebView di risoluzione","Esporta diagnostica","Torna all’elenco"));if(daddy)labels.add("Scegli player Daddy Live");boolean fullOption=current.daddy&&web!=null&&!InternalPlayer.MODE.equals(current.engine);if(fullOption)labels.add(webFullscreen?"Esci da schermo intero":"Schermo intero");new AlertDialog.Builder(this).setTitle(selected.title).setItems(labels.toArray(new String[0]),(d,n)->{if(n==0)start(InternalPlayer.MODE.equals(current.engine)?"WebView assistita":InternalPlayer.MODE);else if(n==1){if(pointer!=null){pointer.toggle();Toast.makeText(this,"Frecce per muovere • OK per cliccare • MENU per comandi",1).show();}}else if(n==2)InternalPlayer.closeWeb(this);else if(n==3)export();else if(n==4)stopPlayback();else if(fullOption&&n==labels.size()-1)toggleWebFullscreen();else{daddyPlaybackUrl=null;start(InternalPlayer.MODE);}}).setNegativeButton("Chiudi",null).show();}
- private void toggleWebFullscreen(){if(custom!=null){hideCustom();return;}setWebFullscreen(!webFullscreen);}
- private void setWebFullscreen(boolean full){if(web==null)return;webFullscreen=full;setPlayerFullscreen(full);if(webFullButton!=null){webFullButton.setText(full?"↙":"⛶");webFullButton.setContentDescription(full?"Esci da schermo intero":"Schermo intero");}String js="(function(){if(window.__ritaSetAppFullscreen){window.__ritaSetAppFullscreen(__FULL__);}else{let s=document.getElementById('rita-app-full-style');if(!s){s=document.createElement('style');s.id='rita-app-full-style';s.textContent='html.rita-app-fullscreen .embed-container{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important}html.rita-app-fullscreen .video-wrapper{height:100%!important;flex:1!important}html.rita-app-fullscreen .controls-bar{display:none!important}';(document.head||document.documentElement).appendChild(s);}document.documentElement.classList.toggle('rita-app-fullscreen',__FULL__);}})();";web.evaluateJavascript(js.replace("__FULL__",full?"true":"false"),null);log(current,"ui.webFullscreen",obj("enabled",full));}
+    private final ExecutorService worker=Executors.newSingleThreadExecutor();
+    private final ExecutorService playbackWorker=Executors.newSingleThreadExecutor(),guideWorker=Executors.newSingleThreadExecutor();
+    private final Handler uiHandler=new Handler(Looper.getMainLooper());
+    private Future<?> resolveJob,catalogJob;
+    private final ExecutorService sessionWorker=Executors.newSingleThreadExecutor();
+    private final ExecutorService gomWorker=Executors.newSingleThreadExecutor();
+    private ChannelSource channelSource=ChannelSource.VAVOO;
+    private int catalogGeneration,gomRetries,freetvRetries,vavooRetries;
+    private final Runnable vavooRenew=new Runnable(){public void run(){if(destroyed||!resumed)return;if(channelSource==ChannelSource.VAVOO){final VavooClient activeClient=client;sessionWorker.submit(()->{try{activeClient.renewSession();}catch(Exception ignored){}});}uiHandler.postDelayed(this,VavooClient.RENEW_INTERVAL_MS);}};
+    private List<VavooClient.Channel> gomCatalog=new ArrayList<>(),freetvCatalog=new ArrayList<>();
+    private String catalogDaddyHome="";private boolean homePaused;
+    private final Runnable gomRefresh=new Runnable(){public void run(){if(destroyed||!resumed||channelSource==ChannelSource.VAVOO)return;loadCatalog(false);scheduleGomRefresh();}};
+    private LinearLayout playerHeader,playerControls,channelPanel;
+    private ListView playerList;
+    private TextView playerTitle,playerEpg;
+    private Button pauseButton,seekBack,seekForward;
+    private PlayerView video;
+    private Player engine;private AudioDelay audioDelay;
+    private androidx.media3.datasource.okhttp.OkHttpDataSource.Factory freetvHttp;private volatile String freetvReferer="",freetvCookie="";private volatile boolean freetvPacked;private FreetvsporWebResolver freetvWeb;
+    private Button selectChannels;
+    private Spinner playerCategories;
+    private CheckBox playerFavorites;
+    private String playerCategory="Tutti";
+    private List<VavooClient.Channel> playerVisible=new ArrayList<>();
+    private ArtworkStore artwork;
+    private ImageView guideImage;
+    private LinearLayout navigation;
+    private Button navDirect,navCategories,navFavorites,navGuide,navEpg,navVod,navEvents;
+    private boolean resumePlayback;
 
- void setPlayerFullscreen(boolean full){fullPlayer=full;if(root==null)return;status.setVisibility(full?View.GONE:View.VISIBLE);if(full){root.setPadding(0,0,0,0);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);}else{getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);root.setPadding(dp(10),dp(8),dp(10),dp(8));}root.requestApplyInsets();}
- boolean retryDaddyStartup(Run r,int errorCode,int httpStatus){
-  if(!r.daddy||current!=r||r.playingObserved||daddyStartupRetries>=2||System.currentTimeMillis()-r.start>60000)return false;
-  boolean transientError=httpStatus==408||httpStatus==429||httpStatus>=500||(httpStatus==0&&errorCode>=2000&&errorCode<3000);
-  if(!transientError)return false;int attempt=++daddyStartupRetries;log(r,"daddy.nativeStartupRetry",obj("attempt",attempt,"code",errorCode,"status",httpStatus));
-  status.setText("Daddy • nuovo tentativo di avvio "+attempt+"/2…");main.postDelayed(()->{if(current==r&&!destroyed&&!r.playingObserved)start(InternalPlayer.MODE);},2500L*attempt);return true;
- }
- private void chooseDaddyPlayer(){Entry target=selected;long ticket=++playerChoiceGeneration;String parent=target.url;status.setText("Daddy Live • recupero player disponibili…");Toast.makeText(this,"Caricamento player disponibili…",0).show();io.execute(()->{try{HttpURLConnection conn=DnsTransport.connection(this,null,parent);String body;Map<String,String> responseHeaders=new LinkedHashMap<>();try{conn.setConnectTimeout(15000);conn.setReadTimeout(15000);conn.setRequestProperty("User-Agent",daddyUA);String savedCookie=android.webkit.CookieManager.getInstance().getCookie(parent);if(savedCookie!=null)conn.setRequestProperty("Cookie",savedCookie);if(conn.getResponseCode()!=200)throw new IOException("HTTP "+conn.getResponseCode());body=new String(readBytes(conn.getInputStream(),4*1024*1024),StandardCharsets.UTF_8);for(Map.Entry<String,List<String>> h:conn.getHeaderFields().entrySet()){if(h.getKey()==null||h.getValue()==null)continue;if(h.getKey().equalsIgnoreCase("Set-Cookie")){for(String value:h.getValue())android.webkit.CookieManager.getInstance().setCookie(parent,value);}else if(!h.getKey().matches("(?i)content-length|content-encoding|transfer-encoding|connection"))responseHeaders.put(h.getKey(),String.join(", ",h.getValue()));}}finally{conn.disconnect();}List<DaddyPlayers.Choice> choices=DaddyPlayers.parse(body);if(choices.isEmpty())throw new IOException("Elenco dei player non riconosciuto");main.post(()->{if(destroyed||!daddy||selected!=target||ticket!=playerChoiceGeneration)return;String[] labels=new String[choices.size()];for(int i=0;i<labels.length;i++)labels[i]=choices.get(i).label();new AlertDialog.Builder(this).setTitle("Daddy Live • scegli player").setItems(labels,(dialog,index)->{DaddyPlayers.Choice choice=choices.get(index);try{daddySelectionHtml=DaddyPlayers.select(body,choice);}catch(Exception error){Toast.makeText(this,"Scelta del player non riuscita",1).show();return;}daddySelectionHeaders=responseHeaders;daddyParent=parent;daddyPlaybackUrl=choice.url;daddyPlayerNumber=choice.number;daddyStartupRetries=0;start(InternalPlayer.MODE);if(current!=null)log(current,"daddy.source",obj("number",choice.number,"httpsUpgrade",choice.upgraded,"directPlaylist",choice.hls));}).setNegativeButton("Annulla",null).show();});}catch(Exception error){main.post(()->{if(destroyed||selected!=target||ticket!=playerChoiceGeneration)return;new AlertDialog.Builder(this).setTitle("Daddy Live").setMessage("Non riesco a leggere l’elenco dei player: "+error.getMessage()).setPositiveButton("Apri WebView",(d,n)->start("WebView assistita")).setNegativeButton("Chiudi",null).show();});}});}
+    private VavooClient.Channel currentChannel,requestedChannel;
+    private List<VavooClient.Channel> zapChannels=new ArrayList<>();
+    private EpgStore epg;
+    private boolean guideLoading=false;
+    private String epgMessage="EPG in caricamento…";
+    private final Runnable hideControls=()->hidePlayerControls();
+    private final Runnable epgTick=new Runnable(){public void run(){if(destroyed)return;updatePlayerInfo();updateHomeGuide();if(adapter!=null)adapter.notifyDataSetChanged();refreshPlayerList();uiHandler.postDelayed(this,60000);}};
+    private VavooClient client;
+    private CatalogStore catalogStore;
+    private android.content.SharedPreferences prefs;
+    private Set<String> favorites;
+    private List<VavooClient.Channel> channels=new ArrayList<>(),visible=new ArrayList<>();
+    private LinearLayout home;
+    private FrameLayout root,player;
+    private ListView list;
+    private TextView status;
+    private EditText search;private long seenBackup;
+    
+    private Button reload,favs;
+    private Spinner categories;
+    private VavooClient.Channel guideChannel;
+    private TextView guideChannelName,guideTitle,guideTime,guideDescription,guideNext;
+    private ProgressBar guideProgress;
+    private Button watch;
+    private ScrollView guideScroll;
+    private String selectedCategory="Tutti";
+    private final Runnable hideChannelList=()->hideChannelPanel();
+    private static final long LIST_TIMEOUT=8000;
 
- @Override public boolean dispatchKeyEvent(KeyEvent e){if(playing&&e.getKeyCode()==KeyEvent.KEYCODE_MENU){if(e.getAction()==0)playbackMenu();return true;}if(playing&&webFullButton!=null&&pointer!=null&&pointer.over(webFullButton)&&e.getKeyCode()==KeyEvent.KEYCODE_DPAD_CENTER){if(e.getAction()==KeyEvent.ACTION_UP)webFullButton.performClick();return true;}if(playing&&resolverCover==null&&web!=null&&web.getVisibility()==View.VISIBLE&&custom==null&&pointer!=null&&pointer.key(e))return true;if(playing&&InternalPlayer.key(this,e))return true;return super.dispatchKeyEvent(e);}
- @Override public void onBackPressed(){if(custom!=null){hideCustom();return;}if(webFullscreen){setWebFullscreen(false);return;}if(playing){if(!tools){tools=true;playbackMenu();}else stopPlayback();return;}super.onBackPressed();}
- @Override protected void onStop(){super.onStop();InternalPlayer.pauseForBackground(this);}
- @Override protected void onDestroy(){destroyed=true;generation++;stopPlayback();main.removeCallbacksAndMessages(null);io.shutdownNow();super.onDestroy();}
- JSONObject obj(Object... values){JSONObject o=new JSONObject();for(int i=0;i+1<values.length;i+=2)try{o.put(String.valueOf(values[i]),values[i+1]);}catch(Exception ignored){}return o;}
- void log(Run r,String kind,JSONObject data){if(r==null)return;synchronized(r){if(r.entries.length()>=3000){r.dropped++;return;}if(kind.equals("media.playing"))r.playingObserved=true;r.entries.put(obj("elapsedMs",System.currentTimeMillis()-r.start,"kind",kind,"data",redact(data)));}}
- private Object redact(Object x){if(x instanceof JSONObject){JSONObject out=new JSONObject();Iterator<String> keys=((JSONObject)x).keys();while(keys.hasNext()){String k=keys.next();try{if(k.matches("(?i).*cookie.*")&&!k.endsWith("Present")&&!k.endsWith("Received"))out.put(k,"[REDACTED]");else out.put(k,redact(((JSONObject)x).opt(k)));}catch(Exception ignored){}}return out;}if(x instanceof JSONArray){JSONArray out=new JSONArray();for(int i=0;i<((JSONArray)x).length();i++)out.put(redact(((JSONArray)x).opt(i)));return out;}if(x instanceof String)return ((String)x).replaceAll("(https?://[^\\s\"?#]+)\\?[^\\s\"]*","$1?[REDACTED]");return x;}
- JSONObject safeHeaders(Map<String,String> h){JSONObject o=new JSONObject();for(Map.Entry<String,String> e:h.entrySet())if(!e.getKey().matches("(?i)cookie|set-cookie|authorization"))try{o.put(e.getKey(),redact(e.getValue()));}catch(Exception ignored){}return o;}
- private void export(){try{JSONArray array=new JSONArray();synchronized(runs){for(Run r:runs)synchronized(r){array.put(obj("engine",r.engine,"event",r.title,"url",redact(r.url),"start",r.start,"playingObserved",r.playingObserved,"droppedEntries",r.dropped,"entries",r.entries));}}
-  JSONObject report=obj("appVersion","1.6","generatedAt",System.currentTimeMillis(),"device",obj("manufacturer",Build.MANUFACTURER,"model",Build.MODEL,"android",Build.VERSION.RELEASE,"sdk",Build.VERSION.SDK_INT),"runs",array,"limitations","No heard-audio confirmation; current-session logs only. WebView DoH covers interceptable HTTPS GET; POST, service workers and redirect fallback may use system DNS. Daddy Live native capture requires an observed media frame; no DRM bypass. No automatic token renewal.");ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(ZipOutputStream zip=new ZipOutputStream(bytes)){zip.putNextEntry(new ZipEntry("report.json"));zip.write(report.toString(2).getBytes(StandardCharsets.UTF_8));zip.closeEntry();}exportBytes=bytes.toByteArray();if(Build.VERSION.SDK_INT>=29){ContentValues values=new ContentValues();values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME,"R-ITA-Live-report-"+new java.text.SimpleDateFormat("yyyyMMdd-HHmmss",Locale.ROOT).format(new Date())+".zip");values.put(android.provider.MediaStore.Downloads.MIME_TYPE,"application/zip");values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS);values.put(android.provider.MediaStore.Downloads.IS_PENDING,1);Uri saved=getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);if(saved==null)throw new IOException("Cartella Download non disponibile");try(OutputStream out=getContentResolver().openOutputStream(saved)){out.write(exportBytes);}catch(Exception error){getContentResolver().delete(saved,null,null);throw error;}values.clear();values.put(android.provider.MediaStore.Downloads.IS_PENDING,0);getContentResolver().update(saved,values,null,null);exportBytes=null;Toast.makeText(this,"Report ZIP salvato in Download",1).show();return;}Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"R-ITA-Live-report.zip");startActivityForResult(i,42);
- }catch(Exception e){Toast.makeText(this,"Esportazione non disponibile: "+e.getMessage(),1).show();}}
- @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==42&&result==RESULT_OK&&data!=null&&exportBytes!=null){try(OutputStream out=getContentResolver().openOutputStream(data.getData())){out.write(exportBytes);Toast.makeText(this,"Report salvato",0).show();}catch(Exception e){Toast.makeText(this,"Errore salvataggio",1).show();}finally{exportBytes=null;}}}
- String asset(String n){try{return new String(readBytes(getAssets().open(n),4*1024*1024),StandardCharsets.UTF_8);}catch(Exception e){return "";}}
- static byte[] readBytes(InputStream input,int limit)throws IOException{try(InputStream in=input;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>limit)throw new IOException("Risposta troppo grande");out.write(b,0,n);}return out.toByteArray();}}
+    private ProgressBar buffering;
+    private boolean favoritesOnly=false,loading=false,destroyed=false,resumed=false;
+    private int playGeneration=0;
+    private ArrayAdapter<String> adapter;
+    
+    private boolean homeBackArmed;
+    private int bg=Color.rgb(21,22,25),fg=Color.rgb(244,243,239),muted=Color.rgb(166,166,170),accent=Color.rgb(242,178,69),themeAtCreate;
+    private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
+    private LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w,h);}
+    private TextView text(String s,int size){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(fg);return t;}
+    private android.graphics.drawable.GradientDrawable surface(int color,int radius,int border){
+        android.graphics.drawable.GradientDrawable d=new android.graphics.drawable.GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));if(border!=0)d.setStroke(dp(1),border);return d;
+    }
+    private android.graphics.drawable.StateListDrawable selectable(int color){
+        android.graphics.drawable.StateListDrawable d=new android.graphics.drawable.StateListDrawable();
+        d.addState(new int[]{android.R.attr.state_focused},surface(UiTheme.softFocus(this),5,accent));
+        d.addState(new int[]{android.R.attr.state_selected},surface(UiTheme.softFocus(this),5,accent));
+        d.addState(new int[]{android.R.attr.state_pressed},surface(UiTheme.softFocus(this),5,accent));
+        d.addState(new int[]{},surface(color,5,Color.rgb(56,57,61)));return d;
+    }
+    private Button button(String title){Button b=new Button(this);b.setText(title);b.setAllCaps(false);b.setTextColor(fg);b.setTextSize(14);
+        b.setTypeface(UiTheme.medium(this));b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(0);b.setMinimumHeight(0);
+        b.setPadding(dp(8),dp(4),dp(8),dp(4));b.setBackground(selectable(UiTheme.panel(this)));b.setElevation(0);return b;}
+    private android.graphics.drawable.StateListDrawable homeSelection(){return selectable(bg);}
+    private android.graphics.drawable.StateListDrawable channelSelection(){android.graphics.drawable.StateListDrawable d=new android.graphics.drawable.StateListDrawable();d.addState(new int[]{android.R.attr.state_focused},surface(UiTheme.softFocus(this),5,accent));d.addState(new int[]{android.R.attr.state_pressed},surface(UiTheme.softFocus(this),5,accent));d.addState(new int[]{},surface(bg,0,0));return d;}
+    private TextView homeText(String title,int size){return text(title,size);}
+    private Button homeButton(String title){return button(title);}
+    protected VavooClient createClient(String id){return new VavooClient(id,this);}
+    protected boolean imagesEnabled(){return true;}
+    private final class ResponsiveHome extends LinearLayout {
+        LinearLayout content;Boolean wideMode;
+        ResponsiveHome(){super(MainActivity.this);setOrientation(VERTICAL);}
+        @Override protected void onMeasure(int width,int height){
+            boolean wide=MeasureSpec.getSize(width)>=dp(700);
+            if(navigation!=null&&content!=null&&(wideMode==null||wideMode!=wide)){wideMode=wide;
+                navigation.setOrientation(HORIZONTAL);navigation.setLayoutParams(lp(-1,dp(wide?50:44)));
+                content.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1));
+                Button[] buttons={navDirect,navCategories,navFavorites,navGuide,navEvents,navVod,reload};
+                String[] large={"Canali ▾","Categorie ▾","Preferiti","Guida TV","Eventi","VOD","↻"},small={"TV","▦","★","Guida","Eventi","VOD","↻"};
+                for(int i=0;i<buttons.length;i++){LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(i==buttons.length-1?dp(wide?48:36):0,-1,i==buttons.length-1?0:1);params.setMarginEnd(dp(4));buttons[i].setLayoutParams(params);buttons[i].setText(wide?large[i]:small[i]);buttons[i].setContentDescription(i==buttons.length-1?"Aggiorna":large[i]);buttons[i].setTextSize(wide?14:11);buttons[i].setSingleLine(true);}
+            }
+            super.onMeasure(width,height);
+        }
+    }
+    /** Carry the existing VOD DNS selection into the separate Live module session. */
+    private void openRitaLive(String section){
+        boolean cloudflare="cloudflare".equals(VodNetwork.provider(this));
+        startActivity(new Intent(this,com.rita.eventilive.MainActivity.class)
+            .putExtra("section",section).putExtra("dns_cloudflare",cloudflare));
+    }
+    private void resetListTimer(){uiHandler.removeCallbacks(hideChannelList);if(channelPanel!=null&&channelPanel.getVisibility()==View.VISIBLE)uiHandler.postDelayed(hideChannelList,LIST_TIMEOUT);}
+    private static class ChannelRow {
+        String channelKey;LinearLayout card;TextView badge,name,programme,next;ProgressBar progress;ImageView logo;
+    }
+    private View channelCard(VavooClient.Channel c,int number,View recycled,boolean main){
+        ChannelRow holder;
+        if(recycled!=null&&recycled.getTag() instanceof ChannelRow)holder=(ChannelRow)recycled.getTag();
+        else {
+            holder=new ChannelRow();LinearLayout outer=new LinearLayout(this);outer.setPadding(0,0,0,0);
+            holder.card=new LinearLayout(this);holder.card.setGravity(Gravity.CENTER_VERTICAL);holder.card.setPadding(dp(12),dp(10),dp(12),dp(10));
+            holder.card.setBackground(channelSelection());holder.card.setDuplicateParentStateEnabled(true);outer.addView(holder.card,lp(-1,-2));
+            holder.badge=homeText("",14);holder.badge.setGravity(Gravity.CENTER);holder.badge.setTypeface(UiTheme.medium(this));
+            holder.badge.setTextColor(accent);holder.card.addView(holder.badge,lp(dp(28),dp(34)));
+            holder.logo=new ImageView(this);holder.logo.setScaleType(ImageView.ScaleType.FIT_CENTER);holder.card.addView(holder.logo,lp(dp(44),dp(34)));
+            LinearLayout details=new LinearLayout(this);details.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams detailParams=new LinearLayout.LayoutParams(0,-2,1);detailParams.leftMargin=dp(10);holder.card.addView(details,detailParams);
+            holder.name=homeText("",17);holder.name.setTypeface(UiTheme.medium(this));holder.name.setMaxLines(2);details.addView(holder.name,lp(-1,-2));
+            holder.programme=homeText("",13);holder.programme.setTextColor(muted);holder.programme.setMaxLines(2);holder.programme.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams programmeParams=lp(-1,-2);programmeParams.topMargin=dp(3);details.addView(holder.programme,programmeParams);
+            holder.progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);holder.progress.setMax(1000);
+            holder.progress.setProgressTintList(ColorStateList.valueOf(accent));holder.progress.setProgressBackgroundTintList(ColorStateList.valueOf(Color.rgb(57,58,62)));
+            LinearLayout.LayoutParams progressParams=lp(-1,dp(3));progressParams.topMargin=dp(5);details.addView(holder.progress,progressParams);
+            holder.next=homeText("",11);holder.next.setTextColor(muted);holder.next.setMaxLines(1);holder.next.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams nextParams=lp(-1,-2);nextParams.topMargin=dp(3);details.addView(holder.next,nextParams);
+            outer.setTag(holder);recycled=outer;
+        }
+        holder.channelKey=c.key();
+        String clean=DisplayNames.channel(c.name);
+        holder.badge.setText(String.format(Locale.US,"%02d",number+1));holder.badge.setVisibility(main&&home.getWidth()>=dp(700)?View.VISIBLE:View.GONE);
+        boolean compact=main&&home.getWidth()<dp(700);holder.logo.setLayoutParams(lp(dp(compact?32:48),dp(34)));holder.name.setTextSize(compact?14:19);holder.next.setVisibility(main?View.GONE:View.VISIBLE);holder.progress.setVisibility(main?View.GONE:View.VISIBLE);
+        artwork.bind(holder.logo,artwork.logo(c,epg));
+        holder.name.setText((favorites.contains(c.key())?"★  ":"")+clean);
+        boolean selected=main&&guideChannel!=null&&guideChannel.key().equals(c.key());
+        holder.card.setActivated(selected);holder.card.setBackground(selected?surface(UiTheme.softFocus(this),5,accent):channelSelection());
+        long now=System.currentTimeMillis();EpgStore.Programme live=epg==null?null:epg.now(c,now),following=epg==null?null:epg.next(c,now);
+        holder.programme.setText(live==null?(epg==null?(guideLoading?"Guida TV in caricamento…":"Guida TV non disponibile"):"Programmazione non disponibile"):(time(live.start)+"–"+time(live.end)+"  "+live.title));
+        holder.progress.setVisibility(live==null?View.GONE:View.VISIBLE);
+        if(live!=null)holder.progress.setProgress((int)Math.max(0,Math.min(1000,(now-live.start)*1000/(live.end-live.start))));
+        holder.next.setVisibility(following==null?View.GONE:View.VISIBLE);holder.next.setText(following==null?"":"DOPO  "+time(following.start)+"  "+following.title);
+        if(main){holder.programme.setMaxLines(2);if(live!=null)holder.programme.setText(live.title);holder.progress.setVisibility(View.GONE);holder.next.setVisibility(View.GONE);}
+        return recycled;
+    }
+    @Override public void onCreate(Bundle saved){
+        super.onCreate(saved);
+        // Keep session catalogue choice when navigating between sections; defaults initialise in VodSession.
+        AppUpdater.cleanupAfterSuccessfulUpdate(this);
+        AppUpdater.check(this,false);
+        try { initialize();if(saved==null&&!getIntent().getBooleanExtra("openLive",false))startActivity(new Intent(this,VodActivity.class)); } catch (Throwable failure) { startupFailure(failure); }
+    }
+    private void startupFailure(Throwable failure) {
+        android.util.Log.e("TVSatPlayer", "Errore iniziale", failure);
+        android.widget.ScrollView scroll=new android.widget.ScrollView(this);
+        android.widget.TextView details=new android.widget.TextView(this);
+        details.setPadding(dp(20),dp(32),dp(20),dp(20));
+        details.setTextSize(16);details.setTextColor(android.graphics.Color.WHITE);
+        scroll.setBackgroundColor(UiTheme.background(this));
+        details.setText("R. ITA TV — errore di avvio\n\n"+android.util.Log.getStackTraceString(failure));
+        details.setTextIsSelectable(true);scroll.addView(details);setContentView(scroll);
+    }
+    private void initialize() {
+        themeAtCreate=UiTheme.selected(this);bg=UiTheme.background(this);accent=UiTheme.accent(this);
+        prefs=getSharedPreferences("player",MODE_PRIVATE);channelSource=ChannelSource.saved(this);
+        String id=prefs.getString("device_id",null);
+        if(id==null){id=UUID.randomUUID().toString();prefs.edit().putString("device_id",id).apply();}
+        client=createClient(id);artwork=new ArtworkStore(this,imagesEnabled());catalogStore=new CatalogStore(this);favorites=new HashSet<>(prefs.getStringSet("favorites",Collections.emptySet()));
+        prefs.edit().remove("country").apply();
+        root=new FrameLayout(this);root.setBackgroundColor(bg);root.setFitsSystemWindows(true);setContentView(root);
+        ResponsiveHome shell=new ResponsiveHome();home=shell;home.setPadding(dp(12),dp(12),dp(12),dp(8));root.addView(home,new FrameLayout.LayoutParams(-1,-1));
+        navigation=new LinearLayout(this);navigation.setTag("homeNavigation");navigation.setOrientation(LinearLayout.HORIZONTAL);navigation.setPadding(0,0,0,dp(6));home.addView(navigation,lp(-1,dp(50)));
+        navDirect=homeButton("◉ Canali ▾");navDirect.setTag("navChannels");navigation.addView(navDirect,lp(-1,dp(48)));
+        navCategories=homeButton("▦ Categorie");navigation.addView(navCategories,lp(-1,dp(48)));
+        navFavorites=homeButton("★ Preferiti");navigation.addView(navFavorites,lp(-1,dp(48)));
+        navGuide=homeButton("≡ Guida TV");navigation.addView(navGuide,lp(-1,dp(48)));
+        navVod=homeButton("VOD");navVod.setTag("navVod");navVod.setOnClickListener(v->startActivity(new Intent(this,VodActivity.class)));navVod.setOnLongClickListener(v->{VodSession.videoMenu(this,()->{});return true;});
+        navEvents=homeButton("Eventi");navEvents.setTag("navEvents");navEvents.setContentDescription("R. ITA Live Eventi");navEvents.setOnClickListener(v->openRitaLive("events"));
+        reload=homeButton("↻ Aggiorna");navigation.addView(reload,lp(-1,dp(48)));
+        navEpg=homeButton("⚙ EPG");navEpg.setOnClickListener(v->epgSettings());navGuide.setOnLongClickListener(v->{epgSettings();return true;});
+        navigation.removeAllViews();for(Button item:new Button[]{navDirect,navCategories,navFavorites,navGuide,navEvents,navVod,reload}){navigation.addView(item);UiTheme.navigation(item);}
+        navDirect.setOnClickListener(v->chooseChannelSource());
+        navDirect.setOnLongClickListener(v->{editChannelUrls();return true;});
+        navCategories.setOnClickListener(v->{categories.requestFocus();categories.performClick();});navFavorites.setOnClickListener(v->favs.performClick());navGuide.setOnClickListener(v->showSchedule(guideChannel));
+        LinearLayout content=new LinearLayout(this);content.setTag("homeContent");content.setOrientation(LinearLayout.VERTICAL);home.addView(content,new LinearLayout.LayoutParams(0,-1,1));shell.content=content;
+        search=new EditText(this);search.setSingleLine(true);search.setTextColor(fg);search.setHintTextColor(muted);
+        search.setHint("Cerca canali o eventi");search.setTextSize(15);search.setPadding(dp(12),0,dp(12),0);search.setBackground(homeSelection());
+        search.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);content.addView(search,lp(-1,dp(36)));
+        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);LinearLayout.LayoutParams rowParams=lp(-1,dp(36));rowParams.topMargin=dp(6);content.addView(row,rowParams);
+        categories=new Spinner(this,Spinner.MODE_DROPDOWN);categories.setTag("categories");categories.setContentDescription("Scegli categoria canali");categories.setFocusable(true);categories.setBackground(homeSelection());row.addView(categories,new LinearLayout.LayoutParams(0,-1,1));
+        ArrayAdapter<String> cats=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,ChannelCategories.ALL){
+            @Override public View getView(int pos,View old,ViewGroup parent){TextView t=(TextView)super.getView(pos,old,parent);t.setText(ChannelCategories.ALL[pos]+"  ▾");t.setTextColor(fg);t.setTextSize(15);return t;}
+        
+            @Override public View getDropDownView(int pos,View old,ViewGroup parent){TextView t=(TextView)super.getDropDownView(pos,old,parent);t.setTextColor(fg);t.setBackground(homeSelection());t.setPadding(dp(16),dp(12),dp(16),dp(12));return t;}
+        };cats.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);categories.setAdapter(cats);
+        categories.setOnFocusChangeListener((v,focus)->{categories.setBackground(focus?surface(UiTheme.softFocus(this),5,accent):homeSelection());});
+        selectedCategory=prefs.getString("category","Tutti");int selected=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);if(selected<0){selected=0;selectedCategory="Tutti";}categories.setSelection(selected);
+        categories.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onItemSelected(AdapterView<?> parent,View view,int pos,long id){if(selectedCategory.equals(ChannelCategories.ALL[pos]))return;selectedCategory=ChannelCategories.ALL[pos];prefs.edit().putString("category",selectedCategory).apply();filter();}
+            public void onNothingSelected(AdapterView<?> parent){}
+        });
+        favs=navFavorites;
+        LinearLayout tools=new LinearLayout(this);tools.setGravity(Gravity.CENTER_VERTICAL);content.addView(tools,lp(-1,dp(24)));
+        status=homeText("Caricamento…",11);status.setTextColor(muted);tools.addView(status,new LinearLayout.LayoutParams(0,-1,1));status.setGravity(Gravity.CENTER_VERTICAL);
+        list=new ListView(this);list.setDivider(new android.graphics.drawable.ColorDrawable(Color.rgb(49,50,54)));list.setDividerHeight(dp(1));list.setCacheColorHint(Color.TRANSPARENT);list.setItemsCanFocus(false);
+        list.setSelector(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));list.setDrawSelectorOnTop(false);list.setTag("homeChannels");list.setId(View.generateViewId());
+        LinearLayout browser=new LinearLayout(this);browser.setTag("homeBrowser");browser.setOrientation(LinearLayout.HORIZONTAL);content.addView(browser,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout channelColumn=new LinearLayout(this);channelColumn.setTag("homeChannelColumn");channelColumn.setOrientation(LinearLayout.VERTICAL);browser.addView(channelColumn,new LinearLayout.LayoutParams(0,-1,0.58f));
+        content.removeView(search);content.removeView(row);content.removeView(tools);
+        channelColumn.addView(search,lp(-1,dp(36)));channelColumn.addView(row,rowParams);channelColumn.addView(tools,lp(-1,dp(24)));
+        channelColumn.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        guideScroll=new ScrollView(this);guideScroll.setTag("homeGuide");guideScroll.setFillViewport(true);guideScroll.setFocusable(true);guideScroll.setFocusableInTouchMode(true);guideScroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);guideScroll.setId(View.generateViewId());guideScroll.setContentDescription("Guida del canale: su e giù per leggere, sinistra per tornare ai canali, OK per Guarda");guideScroll.setOnFocusChangeListener((v,focus)->guideScroll.setBackground(surface(Color.rgb(27,28,32),12,focus?accent:Color.rgb(49,50,54))));
+        guideScroll.setBackground(surface(UiTheme.panel(this),12,accent));
+        LinearLayout.LayoutParams detailsParams=new LinearLayout.LayoutParams(0,-1,0.42f);detailsParams.leftMargin=dp(10);browser.addView(guideScroll,detailsParams);
+        LinearLayout details=new LinearLayout(this);details.setOrientation(LinearLayout.VERTICAL);guideScroll.addView(details,new ScrollView.LayoutParams(-1,-2));
+        FrameLayout hero=new FrameLayout(this){@Override protected void onMeasure(int w,int h){super.onMeasure(w,View.MeasureSpec.makeMeasureSpec(Math.max(dp(180),View.MeasureSpec.getSize(w)*9/16),View.MeasureSpec.EXACTLY));}};hero.setTag("programmeArtwork");details.addView(hero,lp(-1,dp(250)));
+        guideImage=new ProgrammeArtwork(this);guideImage.setTag("guideImage");guideImage.setScaleType(ImageView.ScaleType.FIT_CENTER);guideImage.setContentDescription("Immagine del programma");hero.addView(guideImage,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout heroInfo=new LinearLayout(this);heroInfo.setOrientation(LinearLayout.VERTICAL);heroInfo.setPadding(dp(16),dp(12),dp(16),dp(16));details.addView(heroInfo,lp(-1,-2));
+        guideChannelName=text("Scegli un canale",16);guideChannelName.setTag("guideChannelName");heroInfo.addView(guideChannelName,lp(-1,-2));
+        guideTime=text("",12);guideTime.setTextColor(accent);LinearLayout.LayoutParams timeParams=lp(-1,-2);timeParams.topMargin=dp(12);heroInfo.addView(guideTime,timeParams);
+        guideTitle=text("",24);guideTitle.setTag("guideTitle");guideTitle.setMaxLines(3);guideTitle.setTypeface(UiTheme.medium(this));heroInfo.addView(guideTitle,lp(-1,-2));
+        guideProgress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);guideProgress.setMax(1000);guideProgress.setProgressTintList(ColorStateList.valueOf(accent));guideProgress.setProgressBackgroundTintList(ColorStateList.valueOf(Color.rgb(57,58,62)));LinearLayout.LayoutParams progressParams=lp(-1,dp(3));progressParams.topMargin=dp(10);heroInfo.addView(guideProgress,progressParams);
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),0,dp(16),dp(16));details.addView(body,lp(-1,-2));
+        watch=homeButton("▶ Guarda");watch.setTag("watchChannel");watch.setTextColor(bg);android.graphics.drawable.StateListDrawable watchColors=new android.graphics.drawable.StateListDrawable();watchColors.addState(new int[]{android.R.attr.state_focused},surface(Color.rgb(255,205,111),5,fg));watchColors.addState(new int[]{},surface(accent,5,0));watch.setBackground(watchColors);watch.setId(View.generateViewId());list.setNextFocusRightId(guideScroll.getId());watch.setNextFocusLeftId(list.getId());guideScroll.setNextFocusLeftId(list.getId());body.addView(watch,lp(-1,dp(42)));
+        watch.setOnClickListener(v->{if(guideChannel!=null)play(guideChannel);});
+        guideDescription=text("",15);guideDescription.setTag("guideDescription");guideDescription.setLineSpacing(dp(3),1);LinearLayout.LayoutParams descriptionParams=lp(-1,-2);descriptionParams.topMargin=dp(16);body.addView(guideDescription,descriptionParams);
+        guideNext=text("",14);guideNext.setTextColor(muted);LinearLayout.LayoutParams nextParams=lp(-1,-2);nextParams.topMargin=dp(22);body.addView(guideNext,nextParams);
+        Button schedule=homeButton("Oggi e domani  ›");LinearLayout.LayoutParams scheduleParams=lp(-1,dp(44));scheduleParams.topMargin=dp(16);body.addView(schedule,scheduleParams);schedule.setOnClickListener(v->showSchedule(guideChannel));
+        list.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onItemSelected(AdapterView<?> parent,View view,int pos,long id){if(pos>=0&&pos<visible.size())selectHomeChannel(visible.get(pos));}
+            public void onNothingSelected(AdapterView<?> parent){}
+        });
+        updateHomeGuide();
+        adapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,new ArrayList<String>()){
+            @Override public View getView(int pos,View old,android.view.ViewGroup parent){
+                return channelCard(visible.get(pos),pos,old,true);
+            }
+        };adapter.setNotifyOnChange(false);list.setAdapter(adapter);
+        TextView hint=homeText("OK: guarda · →: EPG · ↑↓: scorri EPG · ←: canali · Tieni premuto Guida TV: impostazioni EPG",10);hint.setTextColor(muted);hint.setGravity(Gravity.CENTER);content.addView(hint,lp(-1,dp(28)));
+        search.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}
+            public void onTextChanged(CharSequence s,int st,int before,int count){filter();}public void afterTextChanged(Editable e){}});
+        search.setOnEditorActionListener((t,action,event)->{if(!search.getText().toString().trim().isEmpty())openTvSearch();else list.requestFocus();
+            ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);return true;});
+        list.setOnItemClickListener((p,v,pos,id2)->{if(pos>=0&&pos<visible.size()){VavooClient.Channel c=visible.get(pos);selectHomeChannel(c);if(!list.isInTouchMode())play(c);}});
+        list.setOnItemLongClickListener((p,v,pos,id2)->{
+            if(pos>=visible.size())return true;String k=visible.get(pos).key();
+            boolean add=!favorites.remove(k);if(add)favorites.add(k);
+            prefs.edit().putStringSet("favorites",new HashSet<>(favorites)).apply();filter();
+            Toast.makeText(this,add?"Aggiunto ai preferiti":"Rimosso dai preferiti",Toast.LENGTH_SHORT).show();return true;
+        });
+        favs.setOnClickListener(v->{favoritesOnly=!favoritesOnly;favs.setText(favoritesOnly?"Tutti i canali":"★ Preferiti");favs.setTextColor(favoritesOnly?accent:fg);filter();});
+        reload.setOnLongClickListener(v->{startActivity(new Intent(this,BackupActivity.class));return true;});reload.setOnClickListener(v->{VodSession.reset();loadCatalog(true);});
+        load();loadEpg(false);uiHandler.postDelayed(epgTick,60000);
+    }
+    private void filter(){
+        if(adapter==null)return;String q=search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        visible.clear();ArrayList<String> names=new ArrayList<>();
+        for(VavooClient.Channel c:channels){
+            if(!c.isItalian())continue;
+            if(!"Tutti".equals(selectedCategory)&&!selectedCategory.equals(ChannelCategories.of(c)))continue;
+            if(favoritesOnly&&!favorites.contains(c.key()))continue;
+            if(!c.name.toLowerCase(Locale.ROOT).contains(q))continue;
+            visible.add(c);names.add((favorites.contains(c.key())?"★  ":"")+DisplayNames.channel(c.name));
+        }
+        adapter.setNotifyOnChange(false);adapter.clear();adapter.addAll(names);adapter.notifyDataSetChanged();
+        VavooClient.Channel match=null;if(guideChannel!=null)for(VavooClient.Channel c:visible)if(c.key().equals(guideChannel.key())){match=c;break;}
+        guideChannel=match!=null?match:(visible.isEmpty()?null:visible.get(0));if(guideChannel!=null)list.setSelection(visible.indexOf(guideChannel));updateHomeGuide();
+        if(!loading)status.setText(channelSource.label+" · "+selectedCategory+" · "+visible.size()+" canali"+(visible.isEmpty()?" · prova una ricerca diversa":""));
+    }
+    private void selectHomeChannel(VavooClient.Channel c){
+        if(guideChannel!=null&&guideChannel.key().equals(c.key()))return;
+        guideChannel=c;if(guideScroll!=null)guideScroll.scrollTo(0,0);updateHomeGuide();
+        // Selection changes no data: repaint only the rows currently on screen.
+        for(int i=0;i<list.getChildCount();i++){View row=list.getChildAt(i);
+            if(row.getTag() instanceof ChannelRow){ChannelRow holder=(ChannelRow)row.getTag();boolean selected=guideChannel.key().equals(holder.channelKey);holder.card.setActivated(selected);holder.card.setBackground(selected?surface(UiTheme.softFocus(this),5,accent):channelSelection());}}
+
+    }
+    private void updateHomeGuide(){
+        if(guideChannelName==null)return;
+        guideChannelName.setText(guideChannel==null?"Nessun canale":DisplayNames.channel(guideChannel.name));watch.setEnabled(guideChannel!=null);
+        long now=System.currentTimeMillis();EpgStore.Programme live=epg==null||guideChannel==null?null:epg.now(guideChannel,now),next=epg==null||guideChannel==null?null:epg.next(guideChannel,now);
+        if(guideImage!=null){String image=live==null?"":live.image;guideImage.setScaleType(ImageView.ScaleType.FIT_CENTER);artwork.bind(guideImage,image.isEmpty()?(guideChannel==null?"":artwork.logo(guideChannel,epg)):image);}
+        navFavorites.setSelected(false);navDirect.setSelected(false);navGuide.setSelected(false);
+        guideTime.setText(live==null?"":("IN ONDA · "+time(live.start)+"–"+time(live.end)));
+        guideTitle.setText(live==null?(guideChannel==null?"Scegli un'altra categoria":(guideLoading?"Guida in caricamento…":"Programmazione non disponibile")):live.title);
+        guideDescription.setText(live==null?(guideChannel==null?"Non ci sono canali per i filtri selezionati.":"La fonte EPG non fornisce un programma in onda per questo canale."):(live.description.trim().isEmpty()?"Trama non disponibile nella guida TV.":live.description));
+        guideProgress.setVisibility(live==null?View.GONE:View.VISIBLE);if(live!=null)guideProgress.setProgress((int)Math.max(0,Math.min(1000,(now-live.start)*1000/(live.end-live.start))));
+        guideNext.setText(next==null?"":("A SEGUIRE · "+time(next.start)+"–"+time(next.end)+"\n"+next.title+(next.description.trim().isEmpty()?"":"\n\n"+next.description)));
+        guideNext.setVisibility(next==null?View.GONE:View.VISIBLE);
+    }
+    private void applyCatalog(List<VavooClient.Channel> result){
+        channels=new ArrayList<>();for(VavooClient.Channel c:result)if(c.isItalian())channels.add(c);
+        Iterator<String> saved=favorites.iterator();while(saved.hasNext()){String key=saved.next();if(key.startsWith("gomstream|")||key.startsWith("freetvspor|"))continue;int split=key.indexOf("|");if(split>0&&!new VavooClient.Channel("",key.substring(0,split),"").isItalian())saved.remove();}
+        prefs.edit().putStringSet("favorites",new HashSet<>(favorites)).apply();filter();if(player!=null)rebuildPlayerChoices();
+    }
+    protected void load(){loadCatalog(false);}
+    private void chooseChannelSource(){
+        new AlertDialog.Builder(this).setTitle("Canali · scegli fonte").setSingleChoiceItems(new String[]{"Vavoo","Gomstream","FreeTVSpor"},channelSource.ordinal(),(d,n)->{d.dismiss();selectSource(ChannelSource.values()[n]);list.requestFocus();}).setNegativeButton("Annulla",null).show();
+    }
+    private void editChannelUrls(){
+        new AlertDialog.Builder(this).setTitle("Canali · cambio URL").setItems(new String[]{"Vavoo","Gomstream","FreeTVSpor","DNS Live"},(d,n)->{if(n==0)VavooSettings.edit(this,()->sourceSettingsChanged(ChannelSource.VAVOO));else if(n==1)GomstreamSettings.edit(this,()->sourceSettingsChanged(ChannelSource.GOMSTREAM));else if(n==2)FreetvsporSettings.edit(this,()->sourceSettingsChanged(ChannelSource.FREETVSPOR));else LiveNetwork.settings(this,()->{});}).setNegativeButton("Annulla",null).show();
+    }
+    private void sourceSettingsChanged(ChannelSource source){
+        if(source==ChannelSource.VAVOO){client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);}
+        if(source!=channelSource)return;
+        if(player!=null)closePlayer();cancelCatalog();channels.clear();guideChannel=null;filter();loadCatalog(true);
+    }
+    private void selectSource(ChannelSource source){
+        if(source==channelSource){filter();loadCatalog(false);return;}
+        if(player!=null)closePlayer();cancelCatalog();channelSource=source;prefs.edit().putString("channel_source",source.name()).apply();
+        channels.clear();visible.clear();guideChannel=null;filter();scheduleGomRefresh();loadCatalog(false);
+    }
+    private void cancelCatalog(){++catalogGeneration;if(catalogJob!=null)catalogJob.cancel(true);loading=false;reload.setEnabled(true);}
+    private boolean catalogCurrent(int request,ChannelSource source,String daddy){return !destroyed&&request==catalogGeneration&&source==channelSource&&(source==ChannelSource.VAVOO||daddy.equals(DaddyLiveSettings.home(this)));}
+    private void scheduleGomRefresh(){uiHandler.removeCallbacks(gomRefresh);if(resumed&&channelSource!=ChannelSource.VAVOO)uiHandler.postDelayed(gomRefresh,600000);}
+    protected List<VavooClient.Channel> fetchGomCatalog(String daddy)throws Exception {
+        List<VavooClient.Channel> result=new ArrayList<>();for(GomstreamSource.Channel c:GomstreamSource.catalog(daddy,LiveNetwork.gom(this)))result.add(ChannelSource.gomstream(c));
+        Collections.sort(result,(a,b)->a.name.compareToIgnoreCase(b.name));return result;
+    }
+    protected List<VavooClient.Channel> fetchFreetvCatalog(String daddy)throws Exception {
+        List<VavooClient.Channel> result=new ArrayList<>();for(FreetvsporSource.Channel c:FreetvsporSource.catalog(daddy,LiveNetwork.freetv(this)))result.add(ChannelSource.freetvspor(c));
+        Collections.sort(result,(a,b)->a.name.compareToIgnoreCase(b.name));return result;
+    }
+    private void loadCatalog(boolean force){
+        if(loading)return;loading=true;reload.setEnabled(false);status.setText(channelSource.label+" · caricamento dei canali italiani…");
+        final int request=++catalogGeneration;final ChannelSource source=channelSource;final String daddy=DaddyLiveSettings.home(this);
+        final VavooClient requestClient=client;final CatalogStore store=catalogStore;
+        if(source==ChannelSource.GOMSTREAM){
+            if(!catalogDaddyHome.equals(daddy)){gomCatalog.clear();catalogDaddyHome=daddy;}
+            if(!gomCatalog.isEmpty()){applyCatalog(gomCatalog);status.setText("Gomstream · aggiornamento in corso…");}
+            catalogJob=gomWorker.submit(()->{try{List<VavooClient.Channel> result=fetchGomCatalog(daddy);runOnUiThread(()->{
+                if(!catalogCurrent(request,source,daddy))return;gomCatalog=new ArrayList<>(result);loading=false;reload.setEnabled(true);applyCatalog(result);
+            });}catch(Exception e){runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);status.setText(channels.isEmpty()?"Gomstream · catalogo non disponibile. Premi Aggiorna.":"Gomstream · canali disponibili, aggiornamento non riuscito. Premi Aggiorna.");});}});return;
+        }
+        if(source==ChannelSource.FREETVSPOR){
+            if(!catalogDaddyHome.equals(daddy)){freetvCatalog.clear();catalogDaddyHome=daddy;}
+            if(!freetvCatalog.isEmpty()){applyCatalog(freetvCatalog);status.setText("FreeTVSpor · aggiornamento in corso…");}
+            catalogJob=gomWorker.submit(()->{try{List<VavooClient.Channel> result=fetchFreetvCatalog(daddy);runOnUiThread(()->{
+                if(!catalogCurrent(request,source,daddy))return;freetvCatalog=new ArrayList<>(result);loading=false;reload.setEnabled(true);applyCatalog(result);
+            });}catch(Exception e){runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);status.setText(channels.isEmpty()?"FreeTVSpor · catalogo non disponibile. Premi Aggiorna.":"FreeTVSpor · canali disponibili, aggiornamento non riuscito. Premi Aggiorna.");});}});return;
+        }
+        catalogJob=worker.submit(()->{
+            CatalogStore.Snapshot cached=store.read();final boolean haveCache=!cached.channels.isEmpty();
+            if(!force&&cached.fresh(System.currentTimeMillis())){
+                runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);applyCatalog(cached.channels);});return;
+            }
+            if(haveCache)runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;applyCatalog(cached.channels);status.setText("Vavoo · canali disponibili, aggiornamento in corso…");});
+            try{
+                List<VavooClient.Channel> result=requestClient.catalog(new VavooClient.Progress(){
+                    public void update(int count){}
+                    public void updateChannels(List<VavooClient.Channel> partial){if(haveCache)return;
+                        runOnUiThread(()->{if(!catalogCurrent(request,source,daddy)||!loading)return;applyCatalog(partial);status.setText("Vavoo · "+partial.size()+" canali disponibili, caricamento in corso…");});}
+                });
+                if(!Thread.currentThread().isInterrupted())try{store.save(result,System.currentTimeMillis());}catch(Exception e){android.util.Log.w("TVSatPlayer","Salvataggio catalogo non riuscito",e);}
+                runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);applyCatalog(result);});
+            }catch(Exception e){runOnUiThread(()->{if(!catalogCurrent(request,source,daddy))return;loading=false;reload.setEnabled(true);
+                if(!channels.isEmpty())status.setText("Vavoo · canali disponibili, aggiornamento non riuscito. Premi Aggiorna.");
+                else {status.setText("Vavoo · catalogo non disponibile. Premi Aggiorna.");error("Caricamento non riuscito",e);}});}
+        });
+    }
+    private void error(String title,Exception e){
+        String msg=e instanceof javax.net.ssl.SSLException?"Il certificato HTTPS del servizio non è valido.":e.getMessage();
+        if(msg==null)msg="Errore di connessione";
+        new AlertDialog.Builder(this).setTitle(title).setMessage(msg).setPositiveButton("OK",null).show();
+    }
+    protected void play(VavooClient.Channel channel){
+        if(player==null){zapChannels=new ArrayList<>(visible);if(zapChannels.isEmpty())zapChannels.add(channel);showPlayer();}
+        if(currentChannel!=null&&currentChannel.key().equals(channel.key())&&requestedChannel==null){hideChannelPanel();showPlayerControls();return;}
+        gomRetries=0;freetvRetries=0;vavooRetries=0;hideChannelPanel();requestedChannel=channel;final int generation=++playGeneration;
+        stopFreetvWeb();if(channel.source==ChannelSource.FREETVSPOR){freetvReferer="";freetvCookie="";freetvPacked=false;}
+        ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
+        buffering.setVisibility(View.VISIBLE);updatePlayerInfo();showPlayerControls();
+        if(resolveJob!=null){client.cancelResolve();resolveJob.cancel(true);}
+        if(channel.source!=ChannelSource.VAVOO&&engine!=null)engine.stop();
+        resolveChannel(channel,generation);
+    }
+    protected void resolveChannel(VavooClient.Channel channel,int generation){
+        resolveJob=playbackWorker.submit(()->{
+            try{
+                if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Channel item=new FreetvsporSource.Channel(channel.url,channel.name);try{FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(item,DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->openFreetvDirect(channel,generation,stream));}catch(Exception directFailure){FreetvsporSource.Selection target=FreetvsporSource.selection(item,DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->startFreetvWeb(channel,generation,target));}return;}
+                String url=resolveStream(channel);runOnUiThread(()->{
+                if(destroyed||generation!=playGeneration||video==null)return;
+                currentChannel=channel;requestedChannel=null;if(channel.source==ChannelSource.FREETVSPOR&&freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());updatePlayerInfo();
+                engine.setMediaItem(mediaItem(channel,url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
+            });}catch(Exception e){runOnUiThread(()->{if(destroyed||generation!=playGeneration)return;
+                requestedChannel=null;if(buffering!=null)buffering.setVisibility(View.GONE);updatePlayerInfo();
+                error("Canale non disponibile",e);
+            });}
+        });
+    }
+    private void openFreetvDirect(VavooClient.Channel channel,int generation,FreetvsporSource.Resolved stream){
+        if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=stream.referer;freetvCookie=android.webkit.CookieManager.getInstance().getCookie(stream.url);if(freetvCookie==null)freetvCookie="";freetvPacked=stream.packed;
+        if(freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());currentChannel=channel;requestedChannel=null;updatePlayerInfo();engine.setMediaItem(mediaItem(channel,stream.url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
+    }
+    private void startFreetvWeb(VavooClient.Channel channel,int generation,FreetvsporSource.Selection target){
+        if(destroyed||generation!=playGeneration||player==null)return;stopFreetvWeb();
+        freetvWeb=new FreetvsporWebResolver(this,player,target.target,target.selector,target.html,new FreetvsporWebResolver.Callback(){
+            public void resolved(String url,String referer,String cookie){
+                if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=referer;freetvCookie=cookie==null?"":cookie;freetvPacked=false;
+                if(freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());currentChannel=channel;requestedChannel=null;updatePlayerInfo();
+                engine.setMediaItem(mediaItem(channel,url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
+            }
+            public void failed(Exception failure){
+                if(destroyed||generation!=playGeneration)return;requestedChannel=null;if(buffering!=null)buffering.setVisibility(View.GONE);updatePlayerInfo();error("Canale non disponibile",failure);
+            }
+        });freetvWeb.start();
+    }
+    private void stopFreetvWeb(){if(freetvWeb!=null){freetvWeb.close();freetvWeb=null;}}
+    protected String resolveStream(VavooClient.Channel channel)throws Exception {
+        if(channel.source==ChannelSource.GOMSTREAM)return GomstreamSource.resolve(new GomstreamSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),GomstreamSettings.home(this),LiveNetwork.gom(this));
+        if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));freetvReferer=stream.referer;freetvPacked=stream.packed;String cookie=android.webkit.CookieManager.getInstance().getCookie(stream.url);freetvCookie=cookie==null?"":cookie;return stream.url;}
+        return client.resolve(channel);
+    }
+    static MediaItem mediaItem(VavooClient.Channel channel,String url){
+        MediaItem.Builder b=new MediaItem.Builder().setUri(url).setMediaId(channel.key());
+        if(channel.source!=ChannelSource.VAVOO)b.setMimeType(MimeTypes.APPLICATION_M3U8).setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(18000).setMinPlaybackSpeed(1f).setMaxPlaybackSpeed(1f).build());
+        return b.build();
+    }
+    private void showPlayer(){
+        home.setVisibility(View.GONE);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().getDecorView().setSystemUiVisibility(5894);
+        player=new FrameLayout(this);player.setTag("player");player.setBackgroundColor(Color.BLACK);root.addView(player,new FrameLayout.LayoutParams(-1,-1));
+        engine=createPlayer();video=new PlayerView(this);video.setUseController(false);video.setKeepContentOnPlayerReset(true);video.setPlayer(engine);video.setResizeMode(prefs.getInt("resize",AspectRatioFrameLayout.RESIZE_MODE_FIT));video.setTag("video");video.setFocusable(true);player.addView(video,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+        buffering=new ProgressBar(this);player.addView(buffering,new FrameLayout.LayoutParams(dp(56),dp(56),Gravity.CENTER));
+        playerHeader=new LinearLayout(this);playerHeader.setTag("playerHeader");playerHeader.setOrientation(LinearLayout.VERTICAL);playerHeader.setPadding(dp(20),dp(12),dp(20),dp(12));
+        playerHeader.setBackgroundColor(0xAA151619);player.addView(playerHeader,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
+        playerTitle=text("",22);playerTitle.setMaxLines(2);playerHeader.addView(playerTitle,lp(-1,-2));
+        playerEpg=text("",15);playerEpg.setMaxLines(3);playerHeader.addView(playerEpg,lp(-1,-2));
+        playerControls=new LinearLayout(this);playerControls.setTag("playerControls");playerControls.setOrientation(LinearLayout.VERTICAL);playerControls.setPadding(dp(10),dp(6),dp(10),dp(6));playerControls.setBackgroundColor(0xDD151619);
+        player.addView(playerControls,new FrameLayout.LayoutParams(-1,dp(112),Gravity.BOTTOM));
+        LinearLayout controls=new LinearLayout(this);playerControls.addView(controls,lp(-1,dp(48)));
+        Button previous=button("CH−");previous.setContentDescription("Canale precedente");controls.addView(previous,new LinearLayout.LayoutParams(0,-1,1));previous.setOnClickListener(v->zap(-1));
+        selectChannels=button("Canali");controls.addView(selectChannels,new LinearLayout.LayoutParams(0,-1,2));selectChannels.setOnClickListener(v->showChannelPanel());
+        pauseButton=button("Pausa");controls.addView(pauseButton,new LinearLayout.LayoutParams(0,-1,2));pauseButton.setOnClickListener(v->togglePause());
+        Button next=button("CH+");next.setContentDescription("Canale successivo");controls.addView(next,new LinearLayout.LayoutParams(0,-1,1));next.setOnClickListener(v->zap(1));
+        Button guide=button("EPG");controls.addView(guide,new LinearLayout.LayoutParams(0,-1,1));guide.setOnClickListener(v->showGuide());
+        LinearLayout extras=new LinearLayout(this);playerControls.addView(extras,lp(-1,dp(46)));
+        seekBack=button("−10 s");seekBack.setTag("seekBack");extras.addView(seekBack,new LinearLayout.LayoutParams(0,-1,1));seekBack.setOnClickListener(v->seekBy(-10000));
+        seekForward=button("+10 s");seekForward.setTag("seekForward");extras.addView(seekForward,new LinearLayout.LayoutParams(0,-1,1));seekForward.setOnClickListener(v->seekBy(10000));
+        Button live=button("Diretta");extras.addView(live,new LinearLayout.LayoutParams(0,-1,1));live.setOnClickListener(v->{if(engine!=null&&engine.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION))engine.seekToDefaultPosition();showPlayerControls();});
+        Button audio=button("Audio");extras.addView(audio,new LinearLayout.LayoutParams(0,-1,1));audio.setOnClickListener(v->audioOptions());
+        Button format=button("Formato");extras.addView(format,new LinearLayout.LayoutParams(0,-1,1));format.setOnClickListener(v->formatOptions());
+        for(int i=0;i<controls.getChildCount();i++)controls.getChildAt(i).setOnFocusChangeListener((v,focus)->{if(focus)scheduleHide();});
+        for(int i=0;i<extras.getChildCount();i++)extras.getChildAt(i).setOnFocusChangeListener((v,focus)->{if(focus)scheduleHide();});
+        channelPanel=new LinearLayout(this);channelPanel.setTag("channelPanel");channelPanel.setOrientation(LinearLayout.VERTICAL);channelPanel.setPadding(dp(10),dp(10),dp(10),dp(10));
+        channelPanel.setBackgroundColor(0xF2151619);int width=Math.min(dp(380),(int)(getResources().getDisplayMetrics().widthPixels*.78));
+        player.addView(channelPanel,new FrameLayout.LayoutParams(width,-1,Gravity.RIGHT));
+        playerCategories=new Spinner(this,Spinner.MODE_DROPDOWN);playerCategories.setTag("playerCategories");playerCategories.setBackground(homeSelection());channelPanel.addView(playerCategories,lp(-1,dp(44)));
+        ArrayAdapter<String> catAdapter=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,ChannelCategories.ALL);catAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);playerCategories.setAdapter(catAdapter);playerCategory=selectedCategory;playerCategories.setSelection(Math.max(0,Arrays.asList(ChannelCategories.ALL).indexOf(playerCategory)));
+        playerCategories.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int pos,long id){playerCategory=ChannelCategories.ALL[pos];rebuildPlayerChoices();resetListTimer();}public void onNothingSelected(AdapterView<?> p){}});
+        playerFavorites=new CheckBox(this);playerFavorites.setTag("playerFavorites");playerFavorites.setText("Solo preferiti");playerFavorites.setTextColor(fg);playerFavorites.setChecked(favoritesOnly);channelPanel.addView(playerFavorites,lp(-1,dp(40)));playerFavorites.setOnCheckedChangeListener((b,checked)->{rebuildPlayerChoices();resetListTimer();});
+        Button returnToVideo=homeButton("Torna al video");channelPanel.addView(returnToVideo,lp(-1,dp(50)));returnToVideo.setOnClickListener(v->{hideChannelPanel();showPlayerControls();});
+        playerList=new ListView(this);playerList.setTag("playerChannels");playerList.setDivider(new android.graphics.drawable.ColorDrawable(Color.rgb(49,50,54)));playerList.setDividerHeight(dp(1));android.graphics.drawable.StateListDrawable playerFocus=new android.graphics.drawable.StateListDrawable();playerFocus.addState(new int[]{android.R.attr.state_focused},surface(0x22F2B245,5,accent));playerFocus.addState(new int[]{android.R.attr.state_pressed},surface(0x22F2B245,5,accent));playerFocus.addState(new int[]{},new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));playerList.setSelector(playerFocus);playerList.setDrawSelectorOnTop(true);
+        channelPanel.addView(playerList,new LinearLayout.LayoutParams(-1,0,1));channelPanel.setVisibility(View.GONE);
+        playerList.setOnScrollListener(new AbsListView.OnScrollListener(){
+            public void onScrollStateChanged(AbsListView v,int state){if(state!=SCROLL_STATE_IDLE)uiHandler.removeCallbacks(hideChannelList);else resetListTimer();}
+            public void onScroll(AbsListView v,int first,int count,int total){}
+        });
+        playerList.setOnItemClickListener((p,v,pos,id)->{if(pos>=0&&pos<zapChannels.size())play(zapChannels.get(pos));});
+        playerList.setOnItemLongClickListener((p,v,pos,id)->{if(pos<0||pos>=zapChannels.size())return true;String key=zapChannels.get(pos).key();if(!favorites.remove(key))favorites.add(key);prefs.edit().putStringSet("favorites",new HashSet<>(favorites)).apply();filter();rebuildPlayerChoices();resetListTimer();return true;});
+        engine.addListener(new Player.Listener(){
+            @Override public void onEvents(Player p,Player.Events events){if(p!=engine)return;if(buffering!=null)buffering.setVisibility(p.getPlaybackState()==Player.STATE_BUFFERING||requestedChannel!=null?View.VISIBLE:View.GONE);if(p.getPlaybackState()==Player.STATE_READY&&currentChannel!=null&&currentChannel.source==ChannelSource.FREETVSPOR)stopFreetvWeb();updatePauseLabel();updateSeekButtons();}
+            @Override public void onPlayerError(PlaybackException failure){
+                if(requestedChannel!=null||destroyed||player==null)return;
+                if(currentChannel!=null&&currentChannel.source==ChannelSource.GOMSTREAM&&resumed&&gomRetries<2){
+                    final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++gomRetries;if(buffering!=null)buffering.setVisibility(View.VISIBLE);
+                    uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();updatePlayerInfo();resolveChannel(retry,++playGeneration);},gomRetries*2000L);return;
+                }
+                if(currentChannel!=null&&currentChannel.source==ChannelSource.FREETVSPOR&&resumed&&freetvRetries<2){
+                    final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++freetvRetries;if(buffering!=null)buffering.setVisibility(View.VISIBLE);
+                    uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();updatePlayerInfo();resolveChannel(retry,++playGeneration);},freetvRetries*2000L);return;
+                }
+                if(currentChannel!=null&&currentChannel.source==ChannelSource.VAVOO&&resumed&&vavooRetries<1&&!accessDenied(failure)){final VavooClient.Channel retry=currentChannel;final int generation=playGeneration;++vavooRetries;uiHandler.postDelayed(()->{if(destroyed||!resumed||engine==null||generation!=playGeneration)return;requestedChannel=retry;engine.stop();resolveChannel(retry,++playGeneration);},2000);return;}
+                if(buffering!=null)buffering.setVisibility(View.GONE);android.util.Log.w("RITATV","Riproduzione non riuscita",failure);
+                VavooClient.Channel failed=currentChannel;new AlertDialog.Builder(MainActivity.this).setTitle("Video non disponibile").setMessage("Il flusso è momentaneamente indisponibile o non supportato. Puoi scegliere un altro canale o riprovare.").setPositiveButton("Riprova",(d,w)->{if(failed!=null){currentChannel=null;play(failed);}}).setNegativeButton("Chiudi",null).show();}
+        });
+        updateSeekButtons();rebuildPlayerChoices();
+        video.setOnTouchListener((v,event)->{if(event.getAction()==android.view.MotionEvent.ACTION_UP){if(playerControls.getVisibility()==View.VISIBLE)hidePlayerControls();else showPlayerControls();}return true;});
+        video.requestFocus();if(epg==null)loadEpg(false);
+    }
+    private void showPlayerControls(){
+        if(playerControls==null||channelPanel.getVisibility()==View.VISIBLE)return;
+        playerControls.setVisibility(View.VISIBLE);playerHeader.setVisibility(View.VISIBLE);updatePlayerInfo();scheduleHide();
+    }
+    private void scheduleHide(){uiHandler.removeCallbacks(hideControls);uiHandler.postDelayed(hideControls,5000);}
+    private void hidePlayerControls(){
+        if(playerControls==null)return;playerControls.setVisibility(View.GONE);playerHeader.setVisibility(View.GONE);
+        if(channelPanel.getVisibility()!=View.VISIBLE&&video!=null)video.requestFocus();
+    }
+    private void showChannelPanel(){
+        if(player==null)return;uiHandler.removeCallbacks(hideControls);hidePlayerControls();refreshPlayerList();
+        channelPanel.setVisibility(View.VISIBLE);int index=indexOfCurrent();playerList.setSelection(Math.max(0,index));playerList.requestFocus();resetListTimer();
+    }
+    private void hideChannelPanel(){uiHandler.removeCallbacks(hideChannelList);if(channelPanel!=null)channelPanel.setVisibility(View.GONE);if(video!=null)video.requestFocus();}
+    private void refreshPlayerList(){
+        if(playerList==null)return;List<String> names=new ArrayList<>();long time=System.currentTimeMillis();
+        for(VavooClient.Channel c:zapChannels){String name=(currentChannel!=null&&c.key().equals(currentChannel.key())?"▶  ":"")+DisplayNames.channel(c.name);
+            EpgStore.Programme p=epg==null?null:epg.now(c,time);if(p!=null)name+="\n"+p.title;names.add(name);}
+        ArrayAdapter<String> a=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,names){
+            @Override public View getView(int pos,View old,ViewGroup parent){return channelCard(zapChannels.get(pos),pos,old,false);}
+        };int selected=playerList.getSelectedItemPosition(),first=playerList.getFirstVisiblePosition();View top=playerList.getChildAt(0);int offset=top==null?0:top.getTop();playerList.setAdapter(a);if(selected>=0&&playerList.isFocused())playerList.setSelection(selected);else playerList.setSelectionFromTop(first,offset);
+    }
+    private int indexOfCurrent(){VavooClient.Channel c=requestedChannel!=null?requestedChannel:currentChannel;if(c==null)return 0;
+        for(int i=0;i<zapChannels.size();i++)if(zapChannels.get(i).key().equals(c.key()))return i;return -1;}
+    private void zap(int direction){if(zapChannels.isEmpty())return;int current=indexOfCurrent();int index=current<0?(direction>0?0:zapChannels.size()-1):(current+direction+zapChannels.size())%zapChannels.size();play(zapChannels.get(index));}
+    private static boolean accessDenied(Throwable e){for(Throwable t=e;t!=null;t=t.getCause())if(t instanceof androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException){int code=((androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)t).responseCode;if(code==401||code==403||code==429)return true;}return false;}
+    protected Player createPlayer(){
+        androidx.media3.datasource.okhttp.OkHttpDataSource.Factory http=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("VAVOO/2.6");
+        audioDelay=AudioDelay.create(this,"live");ExoPlayer.Builder builder=new ExoPlayer.Builder(this,AudioDelay.renderers(this,audioDelay));
+        if(channelSource==ChannelSource.GOMSTREAM){androidx.media3.datasource.okhttp.OkHttpDataSource.Factory gomHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("R-ITA-TV/1.25");
+            builder.setMediaSourceFactory(new HlsMediaSource.Factory(type->{DataSource upstream=gomHttp.createDataSource();return type==C.DATA_TYPE_MEDIA?new GomstreamDataSource(upstream):type==C.DATA_TYPE_MANIFEST?new GomstreamManifestDataSource(upstream):upstream;}));
+        }else if(channelSource==ChannelSource.FREETVSPOR){freetvHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").setDefaultRequestProperties(freetvHeaders());builder.setMediaSourceFactory(new HlsMediaSource.Factory(type->{DataSource upstream=freetvHttp.createDataSource();return freetvPacked&&type==C.DATA_TYPE_MEDIA?new GomstreamDataSource(upstream):freetvPacked&&type==C.DATA_TYPE_MANIFEST?new GomstreamManifestDataSource(upstream):upstream;}));
+        }else builder.setMediaSourceFactory(new DefaultMediaSourceFactory(http).setLoadErrorHandlingPolicy(new StreamErrorPolicy(client)));
+        ExoPlayer p=builder.build();
+        p.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),true);p.setHandleAudioBecomingNoisy(true);p.setTrackSelectionParameters(p.getTrackSelectionParameters().buildUpon().setPreferredAudioLanguage("it").build());return p;
+    }
+    private Map<String,String> freetvHeaders(){String referer=freetvReferer.isEmpty()?FreetvsporSettings.home(this)+"/":freetvReferer;Map<String,String> headers=new LinkedHashMap<>();headers.put("Referer",referer);if(!freetvCookie.isEmpty())headers.put("Cookie",freetvCookie);try{java.net.URI u=new java.net.URI(referer);headers.put("Origin",new java.net.URI(u.getScheme(),null,u.getHost(),u.getPort(),null,null,null).toString());}catch(Exception ignored){}return headers;}
+    private void rebuildPlayerChoices(){
+        if(playerList==null)return;List<VavooClient.Channel> source=channels.isEmpty()?new ArrayList<>(zapChannels):channels;playerVisible=new ArrayList<>();
+        for(VavooClient.Channel c:source){if(!c.isItalian())continue;if(!"Tutti".equals(playerCategory)&&!playerCategory.equals(ChannelCategories.of(c)))continue;if(playerFavorites!=null&&playerFavorites.isChecked()&&!favorites.contains(c.key()))continue;playerVisible.add(c);}
+        zapChannels=new ArrayList<>(playerVisible);refreshPlayerList();
+    }
+    private void togglePause(){if(engine==null)return;if(engine.getPlayWhenReady())engine.pause();else if(resumed)engine.play();updatePauseLabel();showPlayerControls();}
+    private void updatePauseLabel(){if(pauseButton!=null&&engine!=null)pauseButton.setText(engine.getPlayWhenReady()?"Pausa":"Riprendi");}
+    private boolean canSeek(){return engine!=null&&requestedChannel==null&&engine.getPlaybackState()==Player.STATE_READY&&engine.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)&&engine.isCurrentMediaItemSeekable();}
+    private void updateSeekButtons(){boolean enabled=canSeek();for(Button b:new Button[]{seekBack,seekForward})if(b!=null){b.setEnabled(enabled);b.setAlpha(enabled?1f:.35f);b.setContentDescription(enabled?b.getText():"Spostamento non disponibile per questo flusso");}}
+    private void seekBy(long amount){if(!canSeek())return;long position=Math.max(0,engine.getCurrentPosition()+amount),duration=engine.getDuration();if(duration!=C.TIME_UNSET&&duration>=0)position=Math.min(position,duration);engine.seekTo(position);showPlayerControls();}
+    private void audioOptions(){if(engine==null)return;if(audioDelay==null)audioDelay=AudioDelay.create(this,"live");List<TrackSelectionOverride> overrides=new ArrayList<>();List<String> names=new ArrayList<>();names.add("Automatico · italiano preferito");names.add("Sincronizzazione audio · "+audioDelay.get()+" ms");
+        for(Tracks.Group group:engine.getCurrentTracks().getGroups())if(group.getType()==C.TRACK_TYPE_AUDIO)for(int i=0;i<group.length;i++)if(group.isTrackSupported(i)){Format f=group.getTrackFormat(i);names.add((f.label==null?"Traccia "+(overrides.size()+1):f.label)+(f.language==null?"":" · "+f.language));overrides.add(new TrackSelectionOverride(group.getMediaTrackGroup(),i));}
+        uiHandler.removeCallbacks(hideControls);new AlertDialog.Builder(this).setTitle("Audio").setItems(names.toArray(new String[0]),(d,n)->{if(engine==null)return;if(n==1){AudioDelay.menu(this,"live",audioDelay,engine);return;}TrackSelectionParameters.Builder b=engine.getTrackSelectionParameters().buildUpon().clearOverridesOfType(C.TRACK_TYPE_AUDIO).setPreferredAudioLanguage("it");if(n>1)b.setOverrideForType(overrides.get(n-2));engine.setTrackSelectionParameters(b.build());}).setOnDismissListener(d->showPlayerControls()).show();}
+    private void formatOptions(){uiHandler.removeCallbacks(hideControls);new AlertDialog.Builder(this).setTitle("Formato video").setItems(new String[]{"Adatta · proporzioni originali","Zoom · ritaglia i bordi","Riempi lo schermo"},(d,n)->{int mode=new int[]{AspectRatioFrameLayout.RESIZE_MODE_FIT,AspectRatioFrameLayout.RESIZE_MODE_ZOOM,AspectRatioFrameLayout.RESIZE_MODE_FILL}[n];prefs.edit().putInt("resize",mode).apply();if(video!=null)video.setResizeMode(mode);}).setOnDismissListener(d->showPlayerControls()).show();}
+    private String time(long value){return new java.text.SimpleDateFormat("HH:mm",Locale.ITALIAN).format(new Date(value));}
+    private void updatePlayerInfo(){
+        if(playerTitle==null)return;VavooClient.Channel c=requestedChannel!=null?requestedChannel:currentChannel;
+        playerTitle.setText(c==null?"R. ITA TV":DisplayNames.channel(c.name)+(requestedChannel!=null?" · apertura…":""));
+        updateSeekButtons();
+        if(c==null){playerEpg.setText(epgMessage);return;}
+        if(epg==null){playerEpg.setText(epgMessage);return;}
+        long now=System.currentTimeMillis();EpgStore.Programme live=epg.now(c,now),next=epg.next(c,now);
+        String info=live==null?"Ora: informazioni non disponibili":"Ora  "+time(live.start)+"–"+time(live.end)+"  "+live.title;
+        if(next!=null)info+="\nDopo  "+time(next.start)+"  "+next.title;
+        if(epg.latestEnd<now)info="La fonte EPG non è aggiornata";
+        playerEpg.setText(info);
+    }
+    protected void loadEpg(boolean force){
+        if(guideLoading)return;guideLoading=true;epgMessage="EPG in caricamento…";updatePlayerInfo();updateHomeGuide();if(adapter!=null)adapter.notifyDataSetChanged();
+        final String source=prefs.getString("epg_url",EpgStore.DEFAULT_URL);
+        guideWorker.execute(()->{try{EpgStore result=new EpgStore(this);result.load(source,force);
+            runOnUiThread(()->{if(destroyed)return;guideLoading=false;epg=result;epgMessage=result.latestEnd<System.currentTimeMillis()?"Fonte EPG non aggiornata":"EPG aggiornata";
+                updatePlayerInfo();updateHomeGuide();refreshPlayerList();if(adapter!=null)adapter.notifyDataSetChanged();if(force)Toast.makeText(this,epgMessage,Toast.LENGTH_SHORT).show();});
+        }catch(Exception e){runOnUiThread(()->{if(destroyed)return;guideLoading=false;epgMessage="EPG non disponibile";updatePlayerInfo();updateHomeGuide();if(adapter!=null)adapter.notifyDataSetChanged();if(force)error("Guida TV",e);});}});
+    }
+    private void epgSettings(){
+        if(guideLoading){Toast.makeText(this,"Attendi il caricamento della guida",Toast.LENGTH_SHORT).show();return;}
+        new AlertDialog.Builder(this).setTitle("Guida TV italiana").setItems(new String[]{"Aggiorna guida","Modifica fonte XMLTV","Ripristina fonte predefinita"},(dialog,which)->{
+            if(which==0)loadEpg(true);
+            else if(which==2){prefs.edit().remove("epg_url").apply();loadEpg(true);}
+            else {EditText input=new EditText(this);input.setSingleLine(true);input.setText(prefs.getString("epg_url",EpgStore.DEFAULT_URL));
+                new AlertDialog.Builder(this).setTitle("Fonte XMLTV HTTPS").setView(input).setPositiveButton("Salva",(d,w)->{
+                    String url=input.getText().toString().trim();try{java.net.URI u=new java.net.URI(url);if(!"https".equalsIgnoreCase(u.getScheme())||u.getHost()==null)throw new Exception();
+                        prefs.edit().putString("epg_url",url).apply();epg=null;loadEpg(true);
+                    }catch(Exception e){Toast.makeText(this,"Inserisci un URL HTTPS valido",Toast.LENGTH_LONG).show();}
+                }).setNegativeButton("Annulla",null).show();}
+        }).show();
+    }
+    private void showGuide(){showSchedule(currentChannel!=null?currentChannel:requestedChannel);}
+    private void showSchedule(VavooClient.Channel c){
+        if(c==null)return;List<EpgStore.Programme> programmes=new ArrayList<>();List<String> labels=new ArrayList<>();long now=System.currentTimeMillis();
+        if(epg!=null)for(EpgStore.Programme p:epg.guide(c))if(p.end>now){programmes.add(p);labels.add(new java.text.SimpleDateFormat("EEE dd/MM",Locale.ITALIAN).format(new Date(p.start))+"  "+time(p.start)+"–"+time(p.end)+"\n"+p.title);}
+        uiHandler.removeCallbacks(hideControls);
+        if(programmes.isEmpty()){new AlertDialog.Builder(this).setTitle(DisplayNames.channel(c.name)+" · Guida TV").setMessage(epg==null?epgMessage:"Programmazione non disponibile").setPositiveButton("OK",null).setOnDismissListener(d->showPlayerControls()).show();return;}
+        new AlertDialog.Builder(this).setTitle(DisplayNames.channel(c.name)+" · Oggi e domani").setItems(labels.toArray(new String[0]),(dialog,n)->showProgramme(c,programmes.get(n))).setNegativeButton("Chiudi",null).setOnDismissListener(d->showPlayerControls()).show();
+    }
+    private void showProgramme(VavooClient.Channel c,EpgStore.Programme p){
+        ScrollView scroll=new ScrollView(this);LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(20),dp(12),dp(20),dp(16));scroll.addView(body);
+        ImageView image=new ImageView(this);image.setScaleType(ImageView.ScaleType.FIT_CENTER);body.addView(image,lp(-1,dp(200)));artwork.bind(image,p.image.isEmpty()?artwork.logo(c,epg):p.image);
+        TextView description=text(time(p.start)+"–"+time(p.end)+"\n\n"+(p.description.isEmpty()?"Trama non disponibile.":p.description),16);body.addView(description,lp(-1,-2));
+        uiHandler.removeCallbacks(hideControls);new AlertDialog.Builder(this).setTitle(p.title).setView(scroll).setPositiveButton("Chiudi",null).setOnDismissListener(d->showPlayerControls()).show();
+    }
+    private void closePlayerViews(){
+        uiHandler.removeCallbacks(hideControls);uiHandler.removeCallbacks(hideChannelList);stopFreetvWeb();if(video!=null){video.setPlayer(null);video=null;}if(engine!=null){engine.release();engine=null;}seekBack=null;seekForward=null;selectChannels=null;playerCategories=null;playerFavorites=null;buffering=null;
+        if(player!=null&&root!=null)root.removeView(player);player=null;playerHeader=null;playerControls=null;channelPanel=null;playerList=null;playerTitle=null;playerEpg=null;pauseButton=null;
+    }
+    private void closePlayer(){playGeneration++;if(resolveJob!=null){client.cancelResolve();resolveJob.cancel(true);}currentChannel=null;requestedChannel=null;closePlayerViews();home.setVisibility(View.VISIBLE);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().getDecorView().setSystemUiVisibility(0);list.requestFocus();}
+    @Override public void onBackPressed(){if(player!=null){if(channelPanel.getVisibility()==View.VISIBLE)closePlayer();else showChannelPanel();}else if(!homeBackArmed){homeBackArmed=true;navDirect.requestFocus();}else finish();}
+    @Override public boolean dispatchTouchEvent(android.view.MotionEvent e){if(e.getAction()==android.view.MotionEvent.ACTION_DOWN)homeBackArmed=false;if(player!=null&&channelPanel!=null&&channelPanel.getVisibility()==View.VISIBLE){if(e.getAction()==android.view.MotionEvent.ACTION_DOWN)uiHandler.removeCallbacks(hideChannelList);else if(e.getAction()==android.view.MotionEvent.ACTION_UP||e.getAction()==android.view.MotionEvent.ACTION_CANCEL)resetListTimer();}return super.dispatchTouchEvent(e);}
+    @Override public boolean dispatchKeyEvent(KeyEvent e){
+        if(e.getAction()==KeyEvent.ACTION_DOWN&&e.getKeyCode()!=KeyEvent.KEYCODE_BACK)homeBackArmed=false;
+        if(player==null&&list!=null&&guideScroll!=null){int key=e.getKeyCode();boolean down=e.getAction()==KeyEvent.ACTION_DOWN;
+            if(list.isFocused()&&key==KeyEvent.KEYCODE_DPAD_RIGHT){if(down)guideScroll.requestFocus();return true;}
+            if(guideScroll.hasFocus()&&key==KeyEvent.KEYCODE_DPAD_LEFT){if(down)list.requestFocus();return true;}
+            if(guideScroll.isFocused()){
+                if(key==KeyEvent.KEYCODE_DPAD_UP||key==KeyEvent.KEYCODE_DPAD_DOWN){if(down)guideScroll.scrollBy(0,dp(key==KeyEvent.KEYCODE_DPAD_DOWN?80:-80));return true;}
+                if(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER||key==KeyEvent.KEYCODE_DPAD_RIGHT){if(down&&e.getRepeatCount()==0)watch.requestFocus();return true;}
+            }
+        }
+
+        if(player!=null&&e.getAction()==KeyEvent.ACTION_DOWN){if(channelPanel!=null&&channelPanel.getVisibility()==View.VISIBLE)resetListTimer();int key=e.getKeyCode();
+            if(key==KeyEvent.KEYCODE_CHANNEL_UP||key==KeyEvent.KEYCODE_CHANNEL_DOWN){if(e.getRepeatCount()==0)zap(key==KeyEvent.KEYCODE_CHANNEL_UP?1:-1);return true;}
+            if(key==KeyEvent.KEYCODE_MEDIA_REWIND||key==KeyEvent.KEYCODE_MEDIA_FAST_FORWARD){if(e.getRepeatCount()==0)seekBy(key==KeyEvent.KEYCODE_MEDIA_REWIND?-10000:10000);return true;}
+            if(key==KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE){if(e.getRepeatCount()==0)togglePause();return true;}
+            if(channelPanel.getVisibility()!=View.VISIBLE){boolean buttons=playerControls.getVisibility()==View.VISIBLE&&getCurrentFocus()!=video;
+                if(!buttons&&(key==KeyEvent.KEYCODE_DPAD_UP||key==KeyEvent.KEYCODE_DPAD_DOWN)){
+                    if(e.getRepeatCount()==0)zap(key==KeyEvent.KEYCODE_DPAD_UP?1:-1);return true;}
+                if(!buttons&&(key==KeyEvent.KEYCODE_DPAD_RIGHT||key==KeyEvent.KEYCODE_DPAD_LEFT)){
+                    if(e.getRepeatCount()==0)seekBy(key==KeyEvent.KEYCODE_DPAD_RIGHT?10000:-10000);return true;}
+                if(!buttons&&(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER)){showPlayerControls();selectChannels.requestFocus();return true;}
+            }
+        }
+        return super.dispatchKeyEvent(e);
+    }
+    private void openTvSearch(){org.json.JSONArray data=new org.json.JSONArray();for(VavooClient.Channel c:channels)try{data.put(new org.json.JSONObject().put("name",c.name).put("key",c.key()));}catch(Exception ignored){}startActivityForResult(new Intent(this,TvSearchActivity.class).putExtra("channels",data.toString()).putExtra("query",search.getText().toString().trim()),203);}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request==203&&result==RESULT_OK&&data!=null){String key=data.getStringExtra("channelKey");for(VavooClient.Channel c:channels)if(c.key().equals(key)){play(c);break;}}}
+    @Override protected void onResume(){super.onResume();if(themeAtCreate!=UiTheme.selected(this)&&root!=null){recreate();return;}homeBackArmed=false;resumed=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.postDelayed(vavooRenew,VavooClient.RENEW_INTERVAL_MS);long restored=getSharedPreferences("backup",0).getLong("restoredAt",0);if(restored!=seenBackup){seenBackup=restored;favorites=new HashSet<>(prefs.getStringSet("favorites",new HashSet<>()));selectedCategory=prefs.getString("category","Tutti");int categoryIndex=Arrays.asList(ChannelCategories.ALL).indexOf(selectedCategory);categories.setSelection(Math.max(0,categoryIndex));client.cancelResolve();client=createClient(prefs.getString("device_id",""));catalogStore=new CatalogStore(this);gomCatalog.clear();freetvCatalog.clear();cancelCatalog();ChannelSource updated=ChannelSource.saved(this);if(updated!=channelSource)selectSource(updated);else{filter();loadCatalog(true);}epg=new EpgStore(this);loadEpg(true);}if(engine!=null&&resumePlayback)engine.play();
+        if(channelSource!=ChannelSource.VAVOO&&homePaused){if(!catalogDaddyHome.equals(DaddyLiveSettings.home(this))){cancelCatalog();gomCatalog.clear();freetvCatalog.clear();channels.clear();guideChannel=null;filter();}loadCatalog(false);}homePaused=false;scheduleGomRefresh();}
+    @Override protected void onPause(){resumed=false;homePaused=true;uiHandler.removeCallbacks(vavooRenew);uiHandler.removeCallbacks(gomRefresh);if(engine!=null){resumePlayback=engine.getPlayWhenReady();engine.pause();}super.onPause();}
+    @Override protected void onDestroy(){destroyed=true;playGeneration++;uiHandler.removeCallbacksAndMessages(null);worker.shutdownNow();gomWorker.shutdownNow();playbackWorker.shutdownNow();guideWorker.shutdownNow();sessionWorker.shutdownNow();if(artwork!=null)artwork.close();closePlayerViews();super.onDestroy();}
 }
