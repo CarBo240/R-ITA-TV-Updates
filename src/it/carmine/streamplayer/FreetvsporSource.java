@@ -11,7 +11,7 @@ final class FreetvsporSource {
  static final String HOME="https://freetvspor.cfd";
  static final class Channel {final String id,name;Channel(String id,String name){this.id=id;this.name=name;}}
  static final class Page {final String url,body;Page(String url,String body){this.url=url;this.body=body;}}
- static final class Resolved {final String url,referer;Resolved(String url,String referer){this.url=url;this.referer=referer;}}
+ static final class Resolved {final String url,referer;final boolean packed;Resolved(String url,String referer){this(url,referer,false);}Resolved(String url,String referer,boolean packed){this.url=url;this.referer=referer;this.packed=packed;}}
  static final class Selection {final String target,selector,html;Selection(String t,String s,String h){target=t;selector=s;html=h;}}
  interface Transport {Page get(String url,String referer)throws IOException;}
 
@@ -54,7 +54,7 @@ final class FreetvsporSource {
   String parent=daddyHome+"/player/embed.php?id="+URLEncoder.encode(channel.id,"UTF-8");Page selector=http.get(parent,daddyHome+"/");String selected=selectPlayer(selector.body,selector.url,configuredHome);
   ArrayDeque<String[]> pending=new ArrayDeque<>();pending.add(new String[]{selected,selector.url,"0"});Set<String> seen=new HashSet<>();IOException last=null;
   while(!pending.isEmpty()&&seen.size()<12){String[] item=pending.removeFirst();String url=item[0],referer=item[1];int depth=Integer.parseInt(item[2]);if(!seen.add(url))continue;
-   try{Page page=http.get(url,referer);String media=media(page);if(media!=null)return new Resolved(media,page.url);if(depth>=5)continue;for(String frame:frames(page))pending.addLast(new String[]{frame,page.url,String.valueOf(depth+1)});}catch(IOException e){last=e;}
+   try{Page page=http.get(url,referer);String media=media(page);if(media!=null)return new Resolved(media,page.url,Pattern.compile("\\b(?:TSGZ|TPIX|TRAW)\\s*=").matcher(page.body).find());if(depth>=5)continue;for(String frame:frames(page))pending.addLast(new String[]{frame,page.url,String.valueOf(depth+1)});}catch(IOException e){last=e;}
   }
   throw new IOException("FreeTVSpor non ha esposto una playlist HLS pubblica",last);
  }

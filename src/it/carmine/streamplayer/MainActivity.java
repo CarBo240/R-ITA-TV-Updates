@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     private Button pauseButton,seekBack,seekForward;
     private PlayerView video;
     private Player engine;private AudioDelay audioDelay;
-    private androidx.media3.datasource.okhttp.OkHttpDataSource.Factory freetvHttp;private volatile String freetvReferer="",freetvCookie="";private FreetvsporWebResolver freetvWeb;
+    private androidx.media3.datasource.okhttp.OkHttpDataSource.Factory freetvHttp;private volatile String freetvReferer="",freetvCookie="";private volatile boolean freetvPacked;private FreetvsporWebResolver freetvWeb;
     private Button selectChannels;
     private Spinner playerCategories;
     private CheckBox playerFavorites;
@@ -396,7 +396,7 @@ public class MainActivity extends Activity {
         if(player==null){zapChannels=new ArrayList<>(visible);if(zapChannels.isEmpty())zapChannels.add(channel);showPlayer();}
         if(currentChannel!=null&&currentChannel.key().equals(channel.key())&&requestedChannel==null){hideChannelPanel();showPlayerControls();return;}
         gomRetries=0;freetvRetries=0;vavooRetries=0;hideChannelPanel();requestedChannel=channel;final int generation=++playGeneration;
-        stopFreetvWeb();if(channel.source==ChannelSource.FREETVSPOR){freetvReferer="";freetvCookie="";}
+        stopFreetvWeb();if(channel.source==ChannelSource.FREETVSPOR){freetvReferer="";freetvCookie="";freetvPacked=false;}
         ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(search.getWindowToken(),0);
         buffering.setVisibility(View.VISIBLE);updatePlayerInfo();showPlayerControls();
         if(resolveJob!=null){client.cancelResolve();resolveJob.cancel(true);}
@@ -406,7 +406,7 @@ public class MainActivity extends Activity {
     protected void resolveChannel(VavooClient.Channel channel,int generation){
         resolveJob=playbackWorker.submit(()->{
             try{
-                if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Selection target=FreetvsporSource.selection(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->startFreetvWeb(channel,generation,target));return;}
+                if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Channel item=new FreetvsporSource.Channel(channel.url,channel.name);try{FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(item,DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->openFreetvDirect(channel,generation,stream));}catch(Exception directFailure){FreetvsporSource.Selection target=FreetvsporSource.selection(item,DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->startFreetvWeb(channel,generation,target));}return;}
                 String url=resolveStream(channel);runOnUiThread(()->{
                 if(destroyed||generation!=playGeneration||video==null)return;
                 currentChannel=channel;requestedChannel=null;if(channel.source==ChannelSource.FREETVSPOR&&freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());updatePlayerInfo();
@@ -417,11 +417,15 @@ public class MainActivity extends Activity {
             });}
         });
     }
+    private void openFreetvDirect(VavooClient.Channel channel,int generation,FreetvsporSource.Resolved stream){
+        if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=stream.referer;freetvCookie=android.webkit.CookieManager.getInstance().getCookie(stream.url);if(freetvCookie==null)freetvCookie="";freetvPacked=stream.packed;
+        if(freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());currentChannel=channel;requestedChannel=null;updatePlayerInfo();engine.setMediaItem(mediaItem(channel,stream.url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
+    }
     private void startFreetvWeb(VavooClient.Channel channel,int generation,FreetvsporSource.Selection target){
         if(destroyed||generation!=playGeneration||player==null)return;stopFreetvWeb();
         freetvWeb=new FreetvsporWebResolver(this,player,target.target,target.selector,target.html,new FreetvsporWebResolver.Callback(){
             public void resolved(String url,String referer,String cookie){
-                if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=referer;freetvCookie=cookie==null?"":cookie;
+                if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=referer;freetvCookie=cookie==null?"":cookie;freetvPacked=false;
                 if(freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());currentChannel=channel;requestedChannel=null;updatePlayerInfo();
                 engine.setMediaItem(mediaItem(channel,url));engine.prepare();engine.setPlayWhenReady(resumed);resumePlayback=!resumed;if(channelPanel.getVisibility()!=View.VISIBLE)video.requestFocus();
             }
@@ -433,7 +437,7 @@ public class MainActivity extends Activity {
     private void stopFreetvWeb(){if(freetvWeb!=null){freetvWeb.close();freetvWeb=null;}}
     protected String resolveStream(VavooClient.Channel channel)throws Exception {
         if(channel.source==ChannelSource.GOMSTREAM)return GomstreamSource.resolve(new GomstreamSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),GomstreamSettings.home(this),LiveNetwork.gom(this));
-        if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));freetvReferer=stream.referer;return stream.url;}
+        if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Resolved stream=FreetvsporSource.resolveWithContext(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));freetvReferer=stream.referer;freetvPacked=stream.packed;String cookie=android.webkit.CookieManager.getInstance().getCookie(stream.url);freetvCookie=cookie==null?"":cookie;return stream.url;}
         return client.resolve(channel);
     }
     static MediaItem mediaItem(VavooClient.Channel channel,String url){
@@ -534,7 +538,7 @@ public class MainActivity extends Activity {
         audioDelay=AudioDelay.create(this,"live");ExoPlayer.Builder builder=new ExoPlayer.Builder(this,AudioDelay.renderers(this,audioDelay));
         if(channelSource==ChannelSource.GOMSTREAM){androidx.media3.datasource.okhttp.OkHttpDataSource.Factory gomHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("R-ITA-TV/1.25");
             builder.setMediaSourceFactory(new HlsMediaSource.Factory(type->{DataSource upstream=gomHttp.createDataSource();return type==C.DATA_TYPE_MEDIA?new GomstreamDataSource(upstream):type==C.DATA_TYPE_MANIFEST?new GomstreamManifestDataSource(upstream):upstream;}));
-        }else if(channelSource==ChannelSource.FREETVSPOR){freetvHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").setDefaultRequestProperties(freetvHeaders());builder.setMediaSourceFactory(new HlsMediaSource.Factory(freetvHttp));
+        }else if(channelSource==ChannelSource.FREETVSPOR){freetvHttp=new androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(LiveNetwork.client(this)).setUserAgent("Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36").setDefaultRequestProperties(freetvHeaders());builder.setMediaSourceFactory(new HlsMediaSource.Factory(type->{DataSource upstream=freetvHttp.createDataSource();return freetvPacked&&type==C.DATA_TYPE_MEDIA?new GomstreamDataSource(upstream):freetvPacked&&type==C.DATA_TYPE_MANIFEST?new GomstreamManifestDataSource(upstream):upstream;}));
         }else builder.setMediaSourceFactory(new DefaultMediaSourceFactory(http).setLoadErrorHandlingPolicy(new StreamErrorPolicy(client)));
         ExoPlayer p=builder.build();
         p.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),true);p.setHandleAudioBecomingNoisy(true);p.setTrackSelectionParameters(p.getTrackSelectionParameters().buildUpon().setPreferredAudioLanguage("it").build());return p;
