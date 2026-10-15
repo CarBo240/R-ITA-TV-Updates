@@ -406,7 +406,7 @@ public class MainActivity extends Activity {
     protected void resolveChannel(VavooClient.Channel channel,int generation){
         resolveJob=playbackWorker.submit(()->{
             try{
-                if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Resolved target=FreetvsporSource.player(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->startFreetvWeb(channel,generation,target));return;}
+                if(channel.source==ChannelSource.FREETVSPOR){FreetvsporSource.Selection target=FreetvsporSource.selection(new FreetvsporSource.Channel(channel.url,channel.name),DaddyLiveSettings.home(this),FreetvsporSettings.home(this),LiveNetwork.freetv(this));runOnUiThread(()->startFreetvWeb(channel,generation,target));return;}
                 String url=resolveStream(channel);runOnUiThread(()->{
                 if(destroyed||generation!=playGeneration||video==null)return;
                 currentChannel=channel;requestedChannel=null;if(channel.source==ChannelSource.FREETVSPOR&&freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());updatePlayerInfo();
@@ -417,9 +417,9 @@ public class MainActivity extends Activity {
             });}
         });
     }
-    private void startFreetvWeb(VavooClient.Channel channel,int generation,FreetvsporSource.Resolved target){
+    private void startFreetvWeb(VavooClient.Channel channel,int generation,FreetvsporSource.Selection target){
         if(destroyed||generation!=playGeneration||player==null)return;stopFreetvWeb();
-        freetvWeb=new FreetvsporWebResolver(this,player,target.url,target.referer,new FreetvsporWebResolver.Callback(){
+        freetvWeb=new FreetvsporWebResolver(this,player,target.target,target.selector,target.html,new FreetvsporWebResolver.Callback(){
             public void resolved(String url,String referer,String cookie){
                 if(destroyed||generation!=playGeneration||player==null)return;freetvReferer=referer;freetvCookie=cookie==null?"":cookie;
                 if(freetvHttp!=null)freetvHttp.setDefaultRequestProperties(freetvHeaders());currentChannel=channel;requestedChannel=null;updatePlayerInfo();

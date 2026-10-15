@@ -12,6 +12,7 @@ final class FreetvsporSource {
  static final class Channel {final String id,name;Channel(String id,String name){this.id=id;this.name=name;}}
  static final class Page {final String url,body;Page(String url,String body){this.url=url;this.body=body;}}
  static final class Resolved {final String url,referer;Resolved(String url,String referer){this.url=url;this.referer=referer;}}
+ static final class Selection {final String target,selector,html;Selection(String t,String s,String h){target=t;selector=s;html=h;}}
  interface Transport {Page get(String url,String referer)throws IOException;}
 
  static List<Channel> catalog(String daddyHome,Transport http)throws Exception {
@@ -33,6 +34,21 @@ final class FreetvsporSource {
   return new Resolved(selectPlayer(selector.body,selector.url,configuredHome),selector.url);
  }
 
+ static Selection selection(Channel channel,String daddyHome,String configuredHome,Transport http)throws Exception {
+  if(!channel.id.matches("[0-9]{1,8}"))throw new IOException("Canale non valido");
+  String parent=daddyHome+"/player/embed.php?id="+URLEncoder.encode(channel.id,"UTF-8");Page page=http.get(parent,daddyHome+"/");
+  Matcher matcher=Pattern.compile("(?:const|let|var)\\s+PLAYERS\\s*=\\s*(\\[.*?\\])\\s*;",Pattern.DOTALL).matcher(page.body);if(!matcher.find())throw new IOException("Elenco player del canale non riconosciuto");
+  JSONArray players=new JSONArray(matcher.group(1));String configured=host(configuredHome),target=null;int selected=-1;
+  for(int i=0;i<players.length();i++){JSONObject p=players.optJSONObject(i);if(p==null)continue;String raw=decode(p.optString("src",""));if(raw.isEmpty())continue;String url=absolute(page.url,raw),candidate=host(url);if(candidate.equals(configured)||candidate.contains("freetvspor")||p.optString("name","").toLowerCase(Locale.ROOT).contains("freetvspor")){target=url;selected=i;break;}}
+  if(selected<0&&players.length()>=3){JSONObject p=players.optJSONObject(2);if(p!=null){String raw=decode(p.optString("src",""));if(!raw.isEmpty()){target=absolute(page.url,raw);selected=2;}}}
+  if(selected<0)throw new IOException("FreeTVSpor non è presente tra i player di questo canale");players.getJSONObject(selected).put("src",target);
+  String html=page.body.substring(0,matcher.start(1))+players.toString()+page.body.substring(matcher.end(1));int number=selected+1;
+  html=html.replaceAll("((?:let|var|const)\\s+currentPlayer\\s*=\\s*)[0-9]+","$1"+number);
+  Matcher frame=Pattern.compile("<iframe\\b(?=[^>]*\\bid\\s*=\\s*[\"']media-player[\"'])[^>]*>",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(html);
+  if(frame.find()){String tag=frame.group();Matcher src=Pattern.compile("\\bsrc\\s*=\\s*([\"'])[^\"']*\\1",Pattern.CASE_INSENSITIVE).matcher(tag);String attribute="src=\""+target.replace("&","&amp;").replace("\"","&quot;")+"\"";tag=src.find()?src.replaceFirst(Matcher.quoteReplacement(attribute)):tag.substring(0,tag.length()-1)+" "+attribute+">";html=html.substring(0,frame.start())+tag+html.substring(frame.end());}
+  return new Selection(target,page.url,html);
+ }
+
  static Resolved resolveWithContext(Channel channel,String daddyHome,String configuredHome,Transport http)throws Exception {
   if(!channel.id.matches("[0-9]{1,8}"))throw new IOException("Canale non valido");
   String parent=daddyHome+"/player/embed.php?id="+URLEncoder.encode(channel.id,"UTF-8");Page selector=http.get(parent,daddyHome+"/");String selected=selectPlayer(selector.body,selector.url,configuredHome);
@@ -45,9 +61,10 @@ final class FreetvsporSource {
 
  static String selectPlayer(String html,String parent,String configuredHome)throws Exception {
   Matcher m=Pattern.compile("(?:const|let|var)\\s+PLAYERS\\s*=\\s*(\\[.*?\\])\\s*;",Pattern.DOTALL).matcher(html);if(!m.find())throw new IOException("Elenco player del canale non riconosciuto");
-  JSONArray players=new JSONArray(m.group(1));String configured=host(configuredHome);String fallback=null;
+  JSONArray players=new JSONArray(m.group(1));String configured=host(configuredHome);String fallback=null,third=null;
   for(int i=0;i<players.length();i++){JSONObject p=players.optJSONObject(i);if(p==null)continue;String raw=decode(p.optString("src",""));if(raw.isEmpty())continue;String absolute=absolute(parent,raw),candidate=host(absolute);if(candidate.equals(configured)||candidate.contains("freetvspor"))return absolute;if(p.optString("name","").toLowerCase(Locale.ROOT).contains("freetvspor"))fallback=absolute;}
-  if(fallback!=null)return fallback;throw new IOException("FreeTVSpor non è presente tra i player di questo canale");
+  if(players.length()>=3){JSONObject p=players.optJSONObject(2);if(p!=null&&!decode(p.optString("src","")).isEmpty())third=absolute(parent,decode(p.optString("src","")));}
+  if(fallback!=null)return fallback;if(third!=null)return third;throw new IOException("FreeTVSpor non è presente tra i player di questo canale");
  }
 
  static String media(Page page)throws IOException {
