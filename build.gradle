@@ -1,18 +1,15 @@
-buildscript { repositories { maven { url uri('.m2') }; google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:8.9.1'; classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.10' } }
+buildscript { repositories { maven { url uri('.m2') }; google(); mavenCentral() }; dependencies { classpath 'com.android.tools.build:gradle:8.9.1' } }
 apply plugin: 'com.android.application'
-apply plugin: 'org.jetbrains.kotlin.android'
-apply plugin: 'kotlin-parcelize'
 android {
     namespace 'it.carmine.streamplayer'
     compileSdk 36
     buildToolsVersion "35.0.0"
     buildFeatures { buildConfig true }
-    defaultConfig { applicationId 'it.carmine.streamplayer'; minSdk 26; targetSdk 35; versionCode 96; versionName '2.1.38'; ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' } }
+    defaultConfig { applicationId 'it.carmine.streamplayer'; minSdk 26; targetSdk 35; versionCode 2139; versionName '2.1.39'; ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' } }
     splits { abi { enable true; reset(); include "armeabi-v7a", "arm64-v8a"; universalApk true } }
-    sourceSets { test { java.srcDirs = ['tests']; java.exclude '**/EventSourceTest.java', '**/GeckoNavigationTest.java', '**/EventsActivityTest.java', '**/EventSettingsTest.java', '**/GeckoRemoteInputTest.java', '**/DaddyLiveTest.java', '**/DaddyLiveSettingsTest.java' }; main { manifest.srcFile 'AndroidManifest.xml'; java.srcDirs = ['src', 'vendor/streamflix/src/main/java']; java.exclude '**/GeckoEventActivity.java', '**/GeckoDns.java', '**/EventsActivity.java', '**/DaddyLiveActivity.java', '**/EventSource.java', '**/EventSettings.java', '**/SportIcons.java', '**/EventFilterSpinner.java', '**/WebAdPolicy.java'; assets.exclude 'adblock/**', 'team_logos.json'; res.srcDirs = ['res']; assets.srcDirs = ['assets'] } }
+    sourceSets { test { java.srcDirs = ['tests']; java.exclude '**/EventSourceTest.java', '**/GeckoNavigationTest.java', '**/EventsActivityTest.java', '**/EventSettingsTest.java', '**/GeckoRemoteInputTest.java', '**/DaddyLiveTest.java', '**/DaddyLiveSettingsTest.java' }; main { manifest.srcFile 'AndroidManifest.xml'; java.srcDirs = ['src']; java.exclude '**/GeckoEventActivity.java', '**/GeckoDns.java', '**/EventsActivity.java', '**/DaddyLiveActivity.java', '**/EventSource.java', '**/EventSettings.java', '**/SportIcons.java', '**/EventFilterSpinner.java', '**/WebAdPolicy.java'; assets.exclude 'adblock/**', 'team_logos.json'; res.srcDirs = ['res']; assets.srcDirs = ['assets'] } }
     testOptions { unitTests.includeAndroidResources = true; unitTests.all { maxHeapSize = "2g"; jvmArgs "--add-opens=java.base/java.lang=ALL-UNNAMED", "--add-opens=java.base/java.util=ALL-UNNAMED", "--add-opens=java.base/java.io=ALL-UNNAMED", "--add-opens=java.base/java.net=ALL-UNNAMED"; systemProperty "robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2" } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    kotlinOptions { jvmTarget = "17" }
     packaging { jniLibs { useLegacyPackaging true } }
     signingConfigs {
         localTest {
@@ -26,11 +23,6 @@ android {
 }
 
 dependencies {
-    implementation "com.squareup.retrofit2:retrofit:2.11.0"
-    implementation "com.squareup.retrofit2:converter-scalars:2.11.0"
-    implementation "org.jsoup:jsoup:1.19.1"
-    implementation "com.google.code.gson:gson:2.13.1"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
     implementation project(':rita-live-module')
     implementation platform("com.google.firebase:firebase-bom:34.19.0")
     implementation "com.google.firebase:firebase-auth"
@@ -43,7 +35,3 @@ dependencies {
     implementation "androidx.media3:media3-exoplayer-dash:1.10.1"
     implementation "androidx.media3:media3-ui:1.10.1"
  testImplementation "junit:junit:4.13.2"; testImplementation "org.robolectric:robolectric:4.14.1" }
-
-// Refuse partial replacement uploads even when an older workflow is still in GitHub.
-tasks.register("verifyStreamflixImport", Exec) { commandLine "python3", "scripts/check-imported-streamflix.py" }
-tasks.named("preBuild") { dependsOn "verifyStreamflixImport" }

@@ -1,24 +1,23 @@
-CORREZIONE EPISODIO SUCCESSIVO — R. ITA TV
+R. ITA TV 2.1.39 — correzione episodio successivo
 
-Copia le cartelle src e tests nella radice del repository GitHub, unendo le cartelle.
-Sostituisci src/it/carmine/streamplayer/VodPlayerActivity.java.
-Aggiungi src/it/carmine/streamplayer/EpisodeAdvanceGate.java (necessario).
-Non mettere questi file Java nella radice del repository o dentro project.
-Poi ricompila e installa l'APK dal normale workflow del progetto.
+versionName: 2.1.39
+versionCode: 2139 (superiore al valore 90 del progetto caricato).
+Firma e applicationId mantenuti: il workflow usa i Secrets già configurati.
 
-Correzione:
-- un solo avanzamento durante il cambio episodio;
-- arresto del player prima di svuotare il vecchio video;
-- eventi di fine generati dalla sostituzione ignorati;
-- eventi di vecchi episodi ignorati;
-- passaggio automatico conservato dopo che il nuovo episodio è pronto;
-- comando riabilitato anche dopo un errore;
-- stessa protezione durante il caricamento della stagione successiva.
+Carica TUTTI i file e le cartelle di questo ZIP nella radice del repository,
+unendo le cartelle e sostituendo i file presenti. Non dentro project.
+Aggiungi anche EpisodeAdvanceGate.java: è richiesto dal player corretto.
 
-Verifiche eseguite:
-- test Java della protezione: passaggio manuale/automatico, reset playlist,
-  pressioni ripetute, eventi obsoleti, cambio stagione e riprova;
-- parsing Java dei sorgenti modificati.
-Non è stata eseguita una prova sul dispositivo né la compilazione Android completa.
+Sono inclusi i soli file della correzione e dell'aggiornamento versione.
+Il workflow mostrerà l'artifact R-ITA-TV-v2.1.39-APK.
+Dopo la compilazione usa gli APK di questa esecuzione per la nuova release.
 
-Versione e firma dell'app non modificate.
+Correzione: impedisce il doppio avanzamento durante il cambio episodio e
+mantiene il passaggio automatico a fine episodio. Protegge anche il cambio
+stagione e riabilita il comando in caso di errore.
+
+Verifiche: test Java della protezione superati e sintassi Java controllata.
+Compilazione Android completa e prova su dispositivo non eseguite qui.
+
+Per le prossime correzioni: aggiornare sempre versionName, aumentare
+versionCode e aggiornare il nome dell'artifact prima della consegna.
