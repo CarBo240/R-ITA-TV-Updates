@@ -1,23 +1,33 @@
-R. ITA TV 2.1.39 — correzione episodio successivo
+R. ITA TV 2.1.40 — ripristino build Kotlin/Streamflix e cambio episodio
 
-versionName: 2.1.39
-versionCode: 2139 (superiore al valore 90 del progetto caricato).
-Firma e applicationId mantenuti: il workflow usa i Secrets già configurati.
+VERSIONE: 2.1.40
+VERSION CODE: 2140, superiore anche al 2139 del pacchetto precedente.
 
-Carica TUTTI i file e le cartelle di questo ZIP nella radice del repository,
-unendo le cartelle e sostituendo i file presenti. Non dentro project.
-Aggiungi anche EpisodeAdvanceGate.java: è richiesto dal player corretto.
+Carica TUTTO il contenuto nella radice del repository, unendo le cartelle e
+sostituendo i file. Non nella cartella project.
+Sono inclusi solo i file da sostituire o aggiungere, non un progetto completo.
 
-Sono inclusi i soli file della correzione e dell'aggiornamento versione.
-Il workflow mostrerà l'artifact R-ITA-TV-v2.1.39-APK.
-Dopo la compilazione usa gli APK di questa esecuzione per la nuova release.
+Ripristinati dalla configurazione 2.1.38:
+- plugin Kotlin Android e Parcelize;
+- sorgenti vendor/streamflix/src/main/java;
+- dipendenze Retrofit, Jsoup, Gson e coroutines;
+- verifica importazione e workflow di compilazione e pubblicazione.
+La cartella vendor e StreamflixBridge.kt già presenti nel repository vengono
+utilizzati: non sono stati sostituiti con resolver diversi.
 
-Correzione: impedisce il doppio avanzamento durante il cambio episodio e
-mantiene il passaggio automatico a fine episodio. Protegge anche il cambio
-stagione e riabilita il comando in caso di errore.
+Player aggiornato ripartendo dai sorgenti 2.1.37 più recenti recuperati,
+conservando buffering, header e diagnostica Streamflix. Incluso blocco del
+doppio avanzamento, mantenendo il passaggio automatico a fine episodio.
 
-Verifiche: test Java della protezione superati e sintassi Java controllata.
-Compilazione Android completa e prova su dispositivo non eseguite qui.
+I workflow verificano firma, versione 2.1.40 e versionCode 2140 sull'APK reale.
+Artifact compilazione: R-ITA-TV-v2.1.40-APK.
+Per la release crea il tag 2.1.40 sul commit che contiene TUTTI questi file.
+Il workflow release compila e allega R-ITA-TV-universal.apk alla release.
+Firma e applicationId rimangono quelli del progetto e dei Secrets configurati.
 
-Per le prossime correzioni: aggiornare sempre versionName, aumentare
-versionCode e aggiornare il nome dell'artifact prima della consegna.
+Controlli locali superati:
+- integrità dei sorgenti vendor e percorsi di importazione Streamflix;
+- 210 test pipeline + 18/43/10 test resolver;
+- protezione cambio episodio, eventi obsoleti, pressioni ripetute e riprova;
+- parsing sintattico Java del player aggiornato.
+Non eseguite qui compilazione Android completa e prova su dispositivo.
