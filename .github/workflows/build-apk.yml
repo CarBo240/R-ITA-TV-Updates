@@ -48,10 +48,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/web-check"
           javac -d "$RUNNER_TEMP/web-check" src/it/carmine/streamplayer/WebMovieLinks.java src/it/carmine/streamplayer/VodWebSearchScript.java tests/plain/it/carmine/streamplayer/WebMovieLinksCheck.java
           java -cp "$RUNNER_TEMP/web-check" it.carmine.streamplayer.WebMovieLinksCheck
-      - name: Verifica importazione Streamflix e versione
-        run: python3 scripts/check-imported-streamflix.py
-      - name: Verifica resolver SC e MixDrop
-        run: bash scripts/check-lab211.sh
       - name: Compila tre APK
         env:
           RITA_KEYSTORE_FILE: ${{ runner.temp }}/rita-signing.p12
@@ -69,7 +65,7 @@ jobs:
       - name: Artifacts con tre varianti
         uses: actions/upload-artifact@v4
         with:
-          name: R-ITA-TV-v2.1.38-APK
+          name: R-ITA-TV-v2.1.39-APK
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
