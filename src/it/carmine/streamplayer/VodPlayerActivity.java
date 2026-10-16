@@ -45,7 +45,10 @@ public class VodPlayerActivity extends Activity {
  }
  private void saveProgress(){if(title==null||title.json.optBoolean("_rai_live"))return;try{title.json.put("_queue",episodes);if(index>=0&&index<episodes.length())title.json.put("_episodeNumber",episodes.getJSONObject(index).optInt("number"));}catch(Exception ignored){}if(player!=null&&player.getCurrentPosition()>1000){VodLibrary.progress(this,source.id,title,episode,label,player.getCurrentPosition(),player.getDuration());VodLibrary.linkedProgress(this,source,title,episode,label,player.getCurrentPosition(),player.getDuration());}}
  private static int seasonNumber(JSONObject s){return s==null?0:s.optInt("number",s.optInt("season_number"));}
- private boolean canNext(){if(index>=0&&index+1<episodes.length())return true;JSONArray seasons=title.json.optJSONArray("seasons");if(seasons!=null)for(int i=0;i<seasons.length();i++)if(seasonNumber(seasons.optJSONObject(i))>title.json.optInt("_seasonNumber"))return true;return false;}
+ private String[] episodeIds(){String[] values=new String[episodes.length()];for(int i=0;i<values.length;i++){JSONObject e=episodes.optJSONObject(i);values[i]=e==null?"":e.optString("id");}return values;}
+ private int[] episodeNumbers(){int[] values=new int[episodes.length()];for(int i=0;i<values.length;i++){JSONObject e=episodes.optJSONObject(i);values[i]=e==null?0:e.optInt("number",e.optInt("episode_number"));}return values;}
+ private int nextEpisodeIndex(){return EpisodeOrder.nextIndex(episodeIds(),episodeNumbers(),episode,title.json.optInt("_episodeNumber"),index);}
+ private boolean canNext(){if(nextEpisodeIndex()>=0)return true;JSONArray seasons=title.json.optJSONArray("seasons");if(seasons!=null)for(int i=0;i<seasons.length();i++)if(seasonNumber(seasons.optJSONObject(i))>title.json.optInt("_seasonNumber"))return true;return false;}
  private void next(){
   if(player==null||destroyed||!canNext()||!episodeAdvance.beginChange())return;
   updateNextButton();
@@ -53,9 +56,10 @@ public class VodPlayerActivity extends Activity {
   // Stop first: clearing a running playlist can itself report STATE_ENDED.
   // The gate also ignores reentrant callbacks and repeated remote clicks.
   player.stop();player.clearMediaItems();
-  if(index>=0&&index+1<episodes.length()){
+  int queuedNext=nextEpisodeIndex();
+  if(queuedNext>=0){
    try{
-    int targetIndex=index+1;JSONObject e=episodes.getJSONObject(targetIndex);
+    int targetIndex=queuedNext;JSONObject e=episodes.getJSONObject(targetIndex);
     String targetEpisode=source.vixsrc()?String.valueOf(e.optInt("number")):e.getString("id");
     index=targetIndex;episode=targetEpisode;
     label=source.id.equals("raiplay")?e.optString("name",title.name):"S"+title.json.optInt("_seasonNumber")+" · E"+e.optInt("number")+" · "+e.optString("name");
