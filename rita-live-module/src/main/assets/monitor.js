@@ -13,7 +13,7 @@ XMLHttpRequest.prototype.send=function(...a){this.addEventListener('loadend',()=
 for(const level of ['error','warn']){const orig=console[level];console[level]=function(...a){emit('console.'+level,{message:a.map(x=>String(x)).join(' ').slice(0,1500)});return orig.apply(console,a)}}
 const seen=new WeakSet();let sample=0;
 let nativeHandoff=false;
-function resolverMedia(v){if(window.__ritaResolverOnly!==true)return;v.muted=true;if(nativeHandoff&&!v.paused)v.pause();}
+function resolverMedia(v){if(window.__ritaResolverOnly!==true||(window.__ritaMuteAfterHandoff===true&&!nativeHandoff))return;v.muted=true;if(nativeHandoff&&!v.paused)v.pause();}
 window.addEventListener('message',event=>{if(window.__ritaResolverOnly!==true||event.data!=='rita-native-handoff'||(event.source!==window&&event.source!==window.parent))return;
  nativeHandoff=true;document.querySelectorAll('video,audio').forEach(resolverMedia);
  document.querySelectorAll('iframe').forEach(frame=>{try{frame.contentWindow.postMessage('rita-native-handoff','*')}catch(e){}});

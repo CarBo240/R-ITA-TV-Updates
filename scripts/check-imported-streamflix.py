@@ -17,10 +17,10 @@ required={
  'vendor/streamflix/src/main/java/com/streamflixreborn/streamflix/utils/NetworkClient.kt':['CookieManager.getInstance()','VodNetwork.client()'],
  'src/it/carmine/streamplayer/VodPlayerActivity.java':['EpisodeAdvanceGate','episodeAdvance.beginChange()','configureBuffer','StreamflixBridge.playbackClient()'],
  'src/it/carmine/streamplayer/EpisodeAdvanceGate.java':['class EpisodeAdvanceGate','canAutoAdvance'],
- 'build.gradle':['vendor/streamflix/src/main/java','kotlin-gradle-plugin:2.2.10',"versionName '2.1.41'",'versionCode 2141'],
+ 'build.gradle':['vendor/streamflix/src/main/java','kotlin-gradle-plugin:2.2.10',"versionName '2.1.42'",'versionCode 2142'],
 }
 for name,tokens in required.items():
  text=(root/name).read_text()
  for token in tokens:
-  if token not in text:raise SystemExit('Sorgente 2.1.41 mancante o vecchio: '+name)
-print('PASS: imported Streamflix source hashes, production/LAB routes and release 2.1.41')
+  if token not in text:raise SystemExit('Sorgente 2.1.42 mancante o vecchio: '+name)
+print('PASS: imported Streamflix source hashes, production/LAB routes and release 2.1.42')

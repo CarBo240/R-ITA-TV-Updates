@@ -10,6 +10,7 @@ public final class InternalPlayer {
  private static volatile InternalPlayer active;
  private final MainActivity owner;private final MainActivity.Run run;
  private final AtomicBoolean captured=new AtomicBoolean();private volatile boolean released;
+ private final List<WebResourceRequest> pendingEvents=Collections.synchronizedList(new ArrayList<>());
  private ExoPlayer player;private TextView info,position;private Button pause;private FrameLayout stage;private SurfaceView surface;
  private final Runnable hideControls=()->{if(this.controlsScroll!=null)this.controlsScroll.setVisibility(View.GONE);if(info!=null)info.setVisibility(View.GONE);if(position!=null)position.setVisibility(View.GONE);};
  private void showControls(){if(controlsScroll!=null)controlsScroll.setVisibility(View.VISIBLE);if(info!=null)info.setVisibility(View.VISIBLE);if(position!=null)position.setVisibility(View.VISIBLE);owner.main.removeCallbacks(hideControls);owner.main.postDelayed(hideControls,5000);}
@@ -29,11 +30,13 @@ public final class InternalPlayer {
  public static void capture(MainActivity owner,MainActivity.Run run,WebResourceRequest request){
   InternalPlayer current=active;if(current==null||current.owner!=owner||current.run!=run||current.released)return;
   String url=request.getUrl().toString(),ref=NativeFetchClient.header(request.getRequestHeaders(),"Referer");String type=StreamCandidate.mime(url,request.getMethod(),ref);if(type==null&&run.daddy&&url.equals(run.url))type=StreamCandidate.mediaMime(url,request.getMethod());if(type==null&&run.daddy&&owner.isDaddyMediaOrigin(ref))type=StreamCandidate.mediaMime(url,request.getMethod());
+  if(type==null&&!run.daddy){String candidate=StreamCandidate.mediaMime(url,request.getMethod());if(candidate!=null){if(owner.isEventMediaOrigin(ref))type=candidate;else{synchronized(current.pendingEvents){if(current.pendingEvents.size()<16&&!current.pendingEvents.contains(request))current.pendingEvents.add(request);}return;}}}
   if(type==null||!current.captured.compareAndSet(false,true))return;
   current.signedUrl=url;current.mime=type;current.referer=ref==null?run.url:ref;current.origin=NativeFetchClient.header(request.getRequestHeaders(),"Origin");
   owner.log(run,"internal.streamCaptured",owner.obj("url",url,"mime",type,"referer",ref,"queryPresent",request.getUrl().getQuery()!=null,"candidatePolicy","first HLS/DASH GET from recognized player origin"));
   owner.main.post(()->{if(active==current&&owner.current==run&&!current.released)current.open();});
  }
+ public static void retryObserved(MainActivity owner,MainActivity.Run run){InternalPlayer c=active;if(c==null||c.owner!=owner||c.run!=run||run.daddy||c.released||c.captured.get())return;List<WebResourceRequest> pending;synchronized(c.pendingEvents){pending=new ArrayList<>(c.pendingEvents);c.pendingEvents.clear();}for(WebResourceRequest request:pending)capture(owner,run,request);}
  public static void closeWeb(MainActivity owner){InternalPlayer c=active;if(c!=null&&c.owner==owner&&c.player!=null)c.closeResolver();}
  public static void pauseForBackground(MainActivity owner){InternalPlayer c=active;if(c!=null&&c.owner==owner&&c.player!=null)c.player.pause();}
  public static boolean key(MainActivity owner,KeyEvent e){InternalPlayer c=active;if(c==null||c.owner!=owner||c.player==null)return false;
