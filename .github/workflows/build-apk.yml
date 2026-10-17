@@ -69,14 +69,14 @@ jobs:
           test "${#APKS[@]}" -eq 1
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "${APKS[0]}"
           APK_INFO="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "${APKS[0]}")"
-          if [[ "$APK_INFO" != *"versionCode='2141'"* || "$APK_INFO" != *"versionName='2.1.41'"* ]]; then
-            echo "::error::APK con versione errata: attesa 2.1.41 (2141)."
+          if [[ "$APK_INFO" != *"versionCode='2142'"* || "$APK_INFO" != *"versionName='2.1.42'"* ]]; then
+            echo "::error::APK con versione errata: attesa 2.1.42 (2142)."
             exit 1
           fi
       - name: Artifacts con tre varianti
         uses: actions/upload-artifact@v4
         with:
-          name: R-ITA-TV-v2.1.41-APK
+          name: R-ITA-TV-v2.1.42-APK
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
